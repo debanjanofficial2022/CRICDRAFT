@@ -30,7 +30,7 @@
 html, body { background: var(--ground); color: var(--chalk); }
 body { font-family: var(--body); font-size: 16px; line-height: 1.5; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px;
   background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 64px, transparent 64px 128px); }
-#app { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+#app { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 h1, h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .02em; line-height: 1; margin: 0; text-wrap: balance; }
 h1 { font-size: clamp(2.6rem, 8vw, 4.6rem); }
 h2 { font-size: 1.6rem; }
@@ -226,8 +226,8 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 /* squad table */
 .grp { display: flex; flex-direction: column; gap: 6px; }
 .grp h3 small { font-family: var(--mono); font-size: .7rem; color: var(--chalk-dim); margin-left: 6px; }
-.ptable { --cols: minmax(0, 1fr) 30px repeat(2, 46px) 42px 36px 40px 42px 30px; }
-.ptable.short { --cols: minmax(0, 1fr) 30px repeat(2, 46px) 42px 36px 40px 42px; }
+.ptable { --cols: minmax(0, 1fr) 40px 40px 30px repeat(2, 46px) 42px 36px 40px 42px 30px; }
+.ptable.short { --cols: minmax(0, 1fr) 40px 40px 30px repeat(2, 46px) 42px 36px 40px 42px; }
 .ptable ul { list-style: none; margin: 0; padding: 0; }
 .phead { display: grid; grid-template-columns: var(--cols); gap: 6px; padding: 0 10px 4px; font-family: var(--mono); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--chalk-dim); }
 .phead span:not(:first-child) { text-align: right; }
@@ -243,6 +243,7 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .pl .nm em { font-style: normal; color: var(--lamp); }
 .st { text-align: right; font-size: .92rem; }
 .st i { display: none; }
+.st.rt2 { font-family: var(--display); font-weight: 800; font-size: 1.3rem; color: var(--lamp); line-height: 1; }
 .put { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px 12px; background: var(--board); box-shadow: inset 3px 0 0 var(--lamp); }
 .put > span { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); }
 .rolled > .grp + .grp { margin-top: 8px; }

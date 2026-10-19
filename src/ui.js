@@ -51,12 +51,12 @@ function roleLine(p) {
   return parts.join(" · ");
 }
 const shortFmt = () => S.fmt === "t20" || S.fmt === "ipl";
-function statHeads() { return ["M", "Runs", "Avg", "SR", "100s", "Wkts", "Econ", ...(shortFmt() ? [] : ["5w"])].map(h => `<span>${h}</span>`).join(""); }
+function statHeads() { return ["Bat", "Bowl", "M", "Runs", "Avg", "SR", "100s", "Wkts", "Econ", ...(shortFmt() ? [] : ["5w"])].map(h => `<span>${h}</span>`).join(""); }
 function statCells(p) {
   const s = p.st || [0, 0, -1, -1, 0, 0, -1, 0];
   const [m, r, a, sr, h, w, e, w5] = s;
   const cell = (l, v) => `<span class="st"><i>${l}</i>${v}</span>`;
-  return cell("M", m) + cell("Runs", r) + cell("Avg", a < 0 ? (r > 0 ? "–" : "–") : (a / 10).toFixed(1)) + cell("SR", sr < 0 ? "–" : sr) + cell("100s", h) +
+  return `<span class="st rt2"><i>Bat</i>${p.bat}</span><span class="st rt2"><i>Bowl</i>${p.bowl || "–"}</span>` + cell("M", m) + cell("Runs", r) + cell("Avg", a < 0 ? (r > 0 ? "–" : "–") : (a / 10).toFixed(1)) + cell("SR", sr < 0 ? "–" : sr) + cell("100s", h) +
     cell("Wkts", e < 0 ? "–" : w) + cell("Econ", e < 0 ? "–" : (e / 10).toFixed(1)) + (shortFmt() ? "" : cell("5w", e < 0 ? "–" : w5));
 }
 function sqCache() {
@@ -200,7 +200,7 @@ function homeView() {
     ${home.friend ? roomPanel() : ""}
     <details class="how"><summary>How it works</summary>
       <ul>
-        <li>Each roll gives you a real side and year, such as <b>West Indies 1984</b>, <b>India 2011</b> or <b>Chennai Super Kings 2010</b>, with every player's numbers from that season. Pick one and put him in an open slot. Ratings stay hidden until he's in your XI.</li>
+        <li>Each roll gives you a real side and year, such as <b>West Indies 1984</b>, <b>India 2011</b> or <b>Chennai Super Kings 2010</b>, with every player's numbers from that season. Pick one and put him in an open slot. Each player also has a batting and bowling rating (35–99) for that season.</li>
         <li>You get two rerolls: keep the year and change the team, or keep the team and change the year.</li>
         <li>In the IPL you can field at most four overseas players, as in the real league.</li>
         <li>Watch each match ball by ball or over by over and make the captain's calls: bat or bowl, how your batters play, the field and who bowls${""}. In Tests you also choose when to declare and whether to enforce the follow-on. Or skip straight to the result.</li>
