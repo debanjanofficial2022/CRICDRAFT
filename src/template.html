@@ -313,6 +313,28 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .mv > #m-done > .sc, .mv .sc { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
 
+/* celebrations */
+.cele { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 60; overflow: hidden; }
+.cele-in { position: relative; background: rgba(8,31,23,.94); border: 4px solid var(--lamp); padding: 18px 32px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 0 70px rgba(244,182,61,.45);
+  animation: celein .55s cubic-bezier(.2,1.5,.4,1) both, celeout .4s ease-in 2.15s forwards; max-width: calc(100vw - 32px); }
+.cele-big { font-family: var(--display); font-weight: 900; font-size: clamp(3rem, 14vw, 6.5rem); line-height: .9; color: var(--lamp); text-transform: uppercase; letter-spacing: .03em; }
+.cele.fifty .cele-in { border-color: var(--chalk); box-shadow: 0 0 50px rgba(238,241,230,.25); }
+.cele.fifty .cele-big { color: var(--chalk); font-size: clamp(2.6rem, 11vw, 5rem); }
+.cele.hat .cele-in { border-color: var(--loss); box-shadow: 0 0 70px rgba(224,83,61,.5); }
+.cele.hat .cele-big { color: var(--loss); }
+.cele-who { font-family: var(--display); font-weight: 800; font-size: 1.7rem; text-transform: uppercase; letter-spacing: .03em; overflow-wrap: anywhere; }
+.cele-sub { font-family: var(--mono); font-size: .75rem; color: var(--chalk-dim); }
+.hatballs { display: flex; gap: 10px; }
+.hatballs i { font-style: normal; width: 34px; height: 34px; border-radius: 50%; background: var(--loss); color: #fff; display: grid; place-items: center; font: 800 1rem var(--body); animation: popin .35s cubic-bezier(.2,1.6,.4,1) both; }
+.hatballs i:nth-child(2) { animation-delay: .2s; } .hatballs i:nth-child(3) { animation-delay: .4s; }
+.cf { position: absolute; top: -16px; left: var(--x); width: 9px; height: 15px; background: var(--c); transform: rotate(var(--r)); animation: fall var(--d) linear var(--dl) forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(calc(var(--r) + 600deg)); } }
+@keyframes celein { from { transform: scale(.35); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes celeout { to { transform: scale(1.06); opacity: 0; } }
+@keyframes popin { from { transform: scale(0); } to { transform: scale(1); } }
+.dec.scen { box-shadow: 0 0 0 4px var(--loss); }
+.dec.scen .eyebrow { color: #a3301f; font-weight: 600; }
+
 /* head to head */
 .h2h { display: flex; flex-direction: column; gap: 18px; }
 .vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: start; }

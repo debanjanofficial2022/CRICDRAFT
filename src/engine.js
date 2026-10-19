@@ -91,6 +91,7 @@ function ball(r, fmt, batter, bowler, ctx) {
   let f = B[4] * Math.exp(1.1 * diff) * P.runs * (1 + 0.32 * a) * ctx.plan.b * F.b * ub;
   let s = B[6] * Math.exp(1.5 * diff) * P.runs * (1 + 0.55 * a) * ctx.plan.b * F.b * us;
   let one = B[1] * Math.exp(0.35 * diff) * (1 + 0.08 * a) * F.one * (ua < 0 ? 1 - 0.15 * ua : 1), two = B[2] * Math.exp(0.35 * diff), three = B[3];
+  w *= ctx.xw || 1; f *= ctx.xb || 1; s *= ctx.xb || 1;
   w = clamp(w, 0.002, 0.3); f = Math.max(0, f); s = Math.max(0, s);
   const x = r();
   let c = w; if (x < c) return { wicket: true };
@@ -138,6 +139,12 @@ export function* inningsGen(r, batting, bowling, opts) {
   const fall = [];
   const askBat = !!(opts.interactive && opts.humanBat), askBowl = !!(opts.interactive && opts.humanBowl);
   let userAggr = 0, field = FIELDS.balanced, autoBowl = !askBowl, wicketPrompt = false, lastDeclAsk = -99;
+  // Captain's scenarios (only when a person is captaining, so computer-only matches use the same random stream as before).
+  let declAsks = 0, batReviews = fmt === "test" ? 2 : 1, bowlReviews = fmt === "test" ? 2 : 1, nightwatch = false;
+  let fxBat = { balls: 0, a: 0 }, fxBowl = { balls: 0, w: 1, b: 1 };
+  const gambleOver = (lo, hi) => Math.floor(lo + r() * Math.max(1, hi - lo));
+  const batGamble = askBat && fmt !== "test" && r() < 0.8 ? gambleOver(fmt === "t20" ? 6 : 12, fmt === "t20" ? 15 : 38) : askBat && fmt === "test" && r() < 0.5 ? gambleOver(15, 70) : -1;
+  const bowlGamble = askBowl && fmt !== "test" && r() < 0.8 ? gambleOver(fmt === "t20" ? 5 : 10, fmt === "t20" ? 15 : 38) : askBowl && fmt === "test" && r() < 0.7 ? gambleOver(10, 80) : -1;
   const pp = fmt === "t20" ? 6 : 10, mid = fmt === "t20" ? 11 : 30, death = fmt === "t20" ? 16 : 40;
   const phaseName = o => fmt === "test" ? null : o === 0 ? "Powerplay" : o === pp ? "Middle overs" : o === mid ? "Second half" : o === death ? "Death overs" : null;
   const fig = s => `${Math.floor(s.balls / 6)}${s.balls % 6 ? "." + (s.balls % 6) : ""}-${s.m}-${s.r}-${s.w}`;
@@ -168,11 +175,11 @@ export function* inningsGen(r, batting, bowling, opts) {
       const ph = phaseName(overNo);
       const testSession = fmt === "test" && (((opts.day0Ball || 0) + balls) % 180 === 0 || balls === 0);
       // declaration (Test, human batting side)
-      if (fmt === "test" && askBat && opts.canDeclare && overNo - lastDeclAsk >= 10) {
+      if (fmt === "test" && askBat && opts.canDeclare && overNo - lastDeclAsk >= 25 && declAsks < 2) {
         const lead = (opts.leadBefore || 0) + runs;
         const firstInns = opts.inn <= 2;
         if ((firstInns && runs >= 400 && overNo >= 90) || (!firstInns && lead >= 200)) {
-          lastDeclAsk = overNo;
+          lastDeclAsk = overNo; declAsks++;
           const ans = yield dec(opts.batSide, "declare", `${runs}/${wk} after ${overNo} overs${firstInns ? "" : `, a lead of ${lead}`}. Declare?`,
             [opt("declare", "Declare", firstInns ? "Get the opposition in" : `Set them ${lead + 1} to win`), opt("bat", "Bat on", "Build a bigger total")], "bat");
           if (ans === "declare") return finish(true);
@@ -181,12 +188,12 @@ export function* inningsGen(r, batting, bowling, opts) {
       if (askBat && (ph || testSession || wicketPrompt || balls === 0)) {
         wicketPrompt = false;
         const c = yield dec(opts.batSide, "approach", `${ph || (fmt === "test" ? "New session" : "After the wicket")}: how should your batters play?`,
-          Object.entries(APPROACH).map(([k, v]) => opt(k, v.label, v.desc)), "steady", { state: state() });
+          Object.entries(APPROACH).map(([k, v]) => opt(k, v.label, v.desc)), "steady", { state: state(), phase: ph || (balls === 0 ? "start" : fmt === "test" ? "session" : "wicket") });
         userAggr = (APPROACH[c] || APPROACH.steady).a;
       }
       if (askBowl && (ph || testSession || balls === 0)) {
         const c = yield dec(1 - opts.batSide, "field", `${ph || (fmt === "test" ? "New session" : "Field")}: set your field`,
-          Object.entries(FIELDS).map(([k, v]) => opt(k, v.label, v.desc)), "balanced", { state: state() });
+          Object.entries(FIELDS).map(([k, v]) => opt(k, v.label, v.desc)), "balanced", { state: state(), phase: ph || (balls === 0 ? "start" : "session") });
         field = FIELDS[c] || FIELDS.balanced;
       }
       let nb = null;
@@ -197,12 +204,25 @@ export function* inningsGen(r, batting, bowling, opts) {
         const sug = autoBowler();
         const c = yield dec(1 - opts.batSide, "bowler", `Over ${overNo + 1}: who bowls?`,
           [...list.map(b => { const s = bc.get(b); return opt(String(use.indexOf(b)), (b.ref || b).name, `${b.style === "spin" ? "Spin" : "Pace"} · bowl ${b.bowl} · ${fig(s)}${fmt !== "test" ? ` · ${maxPer - Math.ceil(s.balls / 6)} left` : ""}`); }), opt("auto", "Let the captain decide", "Stop asking this innings")],
-          String(use.indexOf(sug)), { state: state(), suggestion: (sug.ref || sug).name });
+          String(use.indexOf(sug)), { state: state(), suggestion: (sug.ref || sug).name, over: overNo, maxOvers: opts.maxOvers || null });
         if (c === "auto") { autoBowl = true; nb = sug; } else nb = use[+c] && list.includes(use[+c]) ? use[+c] : sug;
       }
       if (!nb) nb = autoBowler();
       if (fmt === "test" && nb !== overBowler) { for (const [b, s] of bc) if (b !== nb && b !== last) s.spell = Math.max(0, s.spell - 1); }
       overBowler = nb; overRuns = 0; overWk = 0;
+      const bName = (nb.ref || nb).name, onStrike = card[striker].p.name;
+      if (overNo === batGamble) {
+        const c = yield dec(opts.batSide, "scenario", fmt === "test"
+          ? `${onStrike} has been tied down for an hour and wants to charge ${bName} this over. Let him take the attack to them?`
+          : `The crowd is on its feet. ${onStrike} wants to take ${bName} down this over. Let him swing?`,
+          [opt("yes", "Let him go for it", "Big shots all over: boundaries, or a wicket"), opt("no", "Tell him to stay calm", "Keep playing normally")], "no", { state: state(), phase: "scenario" });
+        if (c === "yes") fxBat = { balls: 6, a: fmt === "test" ? 1.0 : 1.3 };
+      }
+      if (overNo === bowlGamble) {
+        const c = yield dec(1 - opts.batSide, "scenario", `${bName} is fired up and wants to bounce ${onStrike} out this over. Unleash the short ball?`,
+          [opt("yes", "Unleash it", "More wickets, but more runs off the top edge"), opt("no", "Stick to the plan", "Bowl normally")], "no", { state: state(), phase: "scenario" });
+        if (c === "yes") fxBowl = { balls: 6, w: 1.6, b: 1.35 };
+      }
     }
     if (overBalls === null || balls % 6 === 0) overBalls = overBalls || [];
     const bs = bc.get(overBowler);
@@ -227,12 +247,13 @@ export function* inningsGen(r, batting, bowling, opts) {
 
     const day = fmt === "test" ? Math.floor(((opts.day0Ball || 0) + balls) / 540) + 1 : 1;
     const ctx = {
-      tk: opts.fmt, pitch: opts.pitch, plan: opts.plan, aggr: a, ua: askBat ? userAggr : 0, field: askBowl ? field : FIELDS.balanced,
+      tk: opts.fmt, pitch: opts.pitch, plan: opts.plan, aggr: a + (fxBat.balls > 0 ? fxBat.a : 0), ua: askBat ? userAggr : 0, field: askBowl ? field : FIELDS.balanced,
+      xw: fxBowl.balls > 0 ? fxBowl.w : 1, xb: fxBowl.balls > 0 ? fxBowl.b : 1,
       wear: fmt === "test" ? 1 + 0.09 * (day - 1) : 1,
       newBall: fmt === "test" && balls % 480 < 90 ? 1.12 : (fmt !== "test" && overNo < (fmt === "t20" ? 2 : 6) ? 1.08 : 1),
     };
     const batter = card[striker];
-    const res = ball(r, fmt, batter.p, { ...overBowler, effBowl: overBowler.bowl - (fmt === "test" ? Math.max(0, bs.spell - 6) * 1.5 : 0) }, ctx);
+    let res = ball(r, fmt, batter.p, { ...overBowler, effBowl: overBowler.bowl - (fmt === "test" ? Math.max(0, bs.spell - 6) * 1.5 : 0) }, ctx);
     const bowlerName = (overBowler.ref || overBowler).name;
     if (res.extra) {
       runs++; extras++; bs.r++; overRuns++;
@@ -240,20 +261,44 @@ export function* inningsGen(r, batting, bowling, opts) {
       overBalls.push("wd"); yield ev; continue;
     }
     balls++; bs.balls++; batter.b++;
-    let ev;
+    if (fxBat.balls > 0) fxBat.balls--; if (fxBowl.balls > 0) fxBowl.balls--;
+    let ev, review = null, how = null;
+    // the fielding captain can review a big lbw shout that was given not out
+    if (!res.wicket && res.runs === 0 && askBowl && bowlReviews > 0 && r() < 0.012) {
+      const c = yield dec(1 - opts.batSide, "review", `Huge lbw shout against ${batter.p.name} on ${batter.r}! Not out, says the umpire. ${bowlerName} is begging you to review.`,
+        [opt("review", "Review it", `${bowlReviews} review${bowlReviews > 1 ? "s" : ""} left · about 1 in 3 go your way`), opt("no", "Let it go", "Keep the review")], "no", { state: state(), phase: "scenario" });
+      if (c === "review") { if (r() < 0.32) { res = { wicket: true }; how = "lbw"; review = "overturned"; } else { bowlReviews--; review = "lost"; } }
+    }
+    if (res.wicket && !how) how = pick(r, HOW[overBowler.style === "spin" ? "spin" : "pace"]);
+    // the batting captain can review an lbw or a catch behind
+    if (res.wicket && !review && askBat && batReviews > 0 && (how === "lbw" || how === "caught")) {
+      const c = yield dec(opts.batSide, "review", `${batter.p.name} is given out ${how === "lbw" ? "lbw" : "caught behind"} on ${batter.r}! He's sure ${how === "lbw" ? "it was missing leg stump" : "he never touched it"}. Review?`,
+        [opt("review", "Review it", `${batReviews} review${batReviews > 1 ? "s" : ""} left · about 1 in 3 are overturned`), opt("walk", "Walk off", "Save the review for later")], "walk", { state: state(), phase: "scenario" });
+      if (c === "review") { if (r() < 0.32) { res = { runs: 0 }; review = "saved"; } else { batReviews--; review = "lost"; } }
+    }
     if (res.wicket) {
-      wk++; bs.w++; overWk++;
-      const how = pick(r, HOW[overBowler.style === "spin" ? "spin" : "pace"]);
+      wk++; bs.w++; overWk++; bs.hat = (bs.hat || 0) + 1;
       batter.out = { how, bowler: bowlerName };
       fall.push(runs);
-      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 0, wicket: how, batterScore: `${batter.r} (${batter.b})`, score: state() };
+      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 0, wicket: how, batterScore: `${batter.r} (${batter.b})`, score: state(), review, hattrick: bs.hat === 3 };
+      // a late wicket in a Test: send in a nightwatchman?
+      const dayBall = ((opts.day0Ball || 0) + balls) % 540;
+      if (fmt === "test" && askBat && !nightwatch && wk <= 6 && dayBall >= 510 && next < 7) {
+        const tail = card.map((c, i) => [c, i]).filter(([c, i]) => i > next && !c.in).sort((x, y) => x[0].p.bat - y[0].p.bat)[0];
+        if (tail) {
+          nightwatch = true;
+          const c = yield dec(opts.batSide, "scenario", `Wicket with ${Math.ceil((540 - dayBall) / 6)} overs left today. Send ${tail[0].p.name} in as nightwatchman to protect ${card[next].p.name}?`,
+            [opt("yes", "Send the nightwatchman", `${card[next].p.name} starts fresh tomorrow`), opt("no", `Send ${card[next].p.name} in`, "Back your batter")], "no", { state: state(), phase: "scenario" });
+          if (c === "yes") { const i = tail[1]; [card[next], card[i]] = [card[i], card[next]]; }
+        }
+      }
       if (wk < 10) { card[next].in = true; striker = next; next++; ev.newBatter = card[striker].p.name; }
       if ([3, 5, 7].includes(wk)) wicketPrompt = true;
       overBalls.push("W");
     } else {
-      runs += res.runs; batter.r += res.runs; bs.r += res.runs; overRuns += res.runs;
+      runs += res.runs; batter.r += res.runs; bs.r += res.runs; overRuns += res.runs; bs.hat = 0;
       if (res.runs === 4) batter.f++; if (res.runs === 6) batter.s++;
-      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: res.runs, score: state(), milestone: (batter.r >= 100 && batter.r - res.runs < 100) ? 100 : (batter.r >= 50 && batter.r - res.runs < 50) ? 50 : null, batterScore: `${batter.r} (${batter.b})` };
+      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: res.runs, score: state(), milestone: Math.floor(batter.r / 50) > Math.floor((batter.r - res.runs) / 50) ? Math.floor(batter.r / 50) * 50 : null, batterScore: `${batter.r} (${batter.b})`, review };
       if (res.runs % 2 === 1) [striker, non] = [non, striker];
       overBalls.push(String(res.runs));
     }
@@ -373,7 +418,32 @@ export function* testGen(r, A, B, o) {
   return result(null, "Match drawn");
 }
 
-export const matchGen = (r, fmt, A, B, o) => fmt === "test" ? testGen(r, A, B, o) : limitedGen(r, fmt, A, B, o);
+// Keeps a watched match to a handful of calls per captain: the toss, how to start each innings and set the first
+// field, the approach at the death, up to two scenarios (gambles, reviews, nightwatchmen) and, in T20s, who bowls
+// the last four overs. Declarations and the follow-on are always asked. Everything else gets the captain's default.
+export const CALLS = { routine: { t20: 3, ipl: 3, odi: 3, test: 3 }, scenario: 2, reviews: 1 };
+function* budgeted(gen, fmt, human) {
+  const used = [{ r: 0, s: 0 }, { r: 0, s: 0 }], short = fmt === "t20" || fmt === "ipl";
+  let x = gen.next();
+  while (!x.done) {
+    const d = x.value;
+    if (d.type !== "decision") { yield d; x = gen.next(); continue; }
+    let ask = false;
+    const u = used[d.side];
+    if (human[d.side]) {
+      if (d.kind === "toss" || d.kind === "declare" || d.kind === "followon") ask = true;
+      else if (d.kind === "bowler") ask = short && d.maxOvers && d.over >= d.maxOvers - 4;
+      else if (d.kind === "scenario" || d.kind === "review") { ask = u.s < CALLS.scenario && (d.kind !== "review" || (u.v || 0) < CALLS.reviews); if (ask) { u.s++; if (d.kind === "review") u.v = (u.v || 0) + 1; } }
+      else if (d.kind === "approach" || d.kind === "field") {
+        const ok = fmt === "test" ? d.phase === "start" : d.phase === "Powerplay" || (d.kind === "approach" && d.phase === "Death overs");
+        ask = ok && u.r < CALLS.routine[fmt]; if (ask) u.r++;
+      }
+    }
+    x = gen.next(ask ? yield d : d.def);
+  }
+  return x.value;
+}
+export const matchGen = (r, fmt, A, B, o) => { const g = fmt === "test" ? testGen(r, A, B, o) : limitedGen(r, fmt, A, B, o); return o.interactive ? budgeted(g, fmt, o.human || [false, false]) : g; };
 // Non-interactive helpers kept for simulations and the campaign's unwatched matches.
 export const playLimited = (r, fmt, A, B, { pitch, planA, planB }) => runAuto(limitedGen(r, fmt, A, B, { pitch, plans: [planA, planB] }));
 export const playTest = (r, A, B, { pitch, planA, planB }) => runAuto(testGen(r, A, B, { pitch, plans: [planA, planB] }));

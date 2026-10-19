@@ -113,7 +113,7 @@ function newRun(o) {
 }
 function doRoll(kind) {
   if (!kind) { S.rollNo++; S.key = roll(rng(hashSeed(`${S.seed}|roll|${S.rollNo}`)), DATA, S.fmt); }
-  else { S.rrNo++; const r = rng(hashSeed(`${S.seed}|rr|${S.rollNo}|${S.rrNo}|${kind}`)); S.key = kind === "team" ? rerollTeam(r, DATA, S.fmt, S.key) : rerollYear(r, DATA, S.fmt, S.key); }
+  else { S.rrNo++; const r = rng(hashSeed(`${S.seed}|rr|${S.rollNo}|${S.rrNo}|${kind}`)); S.key = kind === "team" ? rerollTeam(r, DATA, S.fmt, S.key) : kind === "year" ? rerollYear(r, DATA, S.fmt, S.key) : (() => { let k = S.key; for (let i = 0; i < 20 && (k === S.key || teamOf(k) === teamOf(S.key)); i++) k = roll(r, DATA, S.fmt); return k; })(); }
   S.sel = null;
 }
 // Batting order: the two openers, then everyone else by batting rating (the keeper included).
@@ -211,9 +211,9 @@ function homeView() {
     <details class="how"><summary>How it works</summary>
       <ul>
         <li>Each roll gives you a real side and year, such as <b>West Indies 1984</b>, <b>India 2011</b> or <b>Chennai Super Kings 2010</b>, with every player's numbers from that season. Pick one and put him in an open slot. Each player also has a batting and bowling rating (35–99) for that season.</li>
-        <li>You get two rerolls: keep the year and change the team, or keep the team and change the year.</li>
+        <li>You get two rerolls: keep the year and change the team, keep the team and change the year, or roll a completely new side.</li>
         <li>In the IPL you can field at most four overseas players, as in the real league.</li>
-        <li>Watch each match ball by ball or over by over and make the captain's calls: bat or bowl, how your batters play, the field and who bowls${""}. In Tests you also choose when to declare and whether to enforce the follow-on. Or skip straight to the result.</li>
+        <li>Watch each match ball by ball or over by over and make five or six captain's calls: the toss, how your batters start and finish, your field, and a couple of moments in the game, like a review, a gamble on a big over or a bouncer barrage. In T20s you also pick who bowls the last four overs, and in Tests when to declare. Or skip straight to the result.</li>
         <li>Ratings come from every Test and ODI scorecard since 1983 and ball-by-ball records of T20 internationals and the IPL, adjusted for era. Upsets happen about as often as they do in real cricket: the engine was checked against 8,099 real results.</li>
       </ul></details>
     <p class="note credit">Data: Test and ODI scorecards 1983–2023 from the Kaggle datasets by Bhuvanesh Prasad (Apache 2.0); ball-by-ball data from <a href="https://cricsheet.org" target="_blank" rel="noopener">Cricsheet</a> (Open Data Commons Attribution licence); player roles from the cricketdata R package. CricDraft is a fan game and is not affiliated with the ICC, the BCCI, the IPL, any board or any franchise.</p>
@@ -263,7 +263,7 @@ function draftView() {
       ${done ? `<div class="done"><h2>Your XI is complete</h2><p class="note">Team strength <b>${strength(xiOf())}</b>. Most real sides rate between 70 and 85.</p>${bowlerCount() < 5 ? `<p class="warn">Only ${bowlerCount()} of your XI bowl, so part-timers will bowl the rest of the overs.</p>` : ""}<button class="btn big-btn" data-act="ready">Pick a game plan</button></div>`
       : !S.key ? `<div class="dice-wrap"><button class="dice" data-act="roll" aria-label="Roll for a team"><span id="die">${S.rollNo ? "⚄" : "⚀"}</span></button><p>Roll for a ${ipl ? "franchise" : "team"}. ${11 - filled()} to pick.${S.rerolls ? ` ${plural(S.rerolls, "reroll")} left.` : ""}</p></div>`
       : `<div class="rolled"><div class="rolled-head"><div><span class="eyebrow">You rolled</span><h2 id="rolled-name">${esc(S.key)}</h2></div>
-          <div class="rerolls"><span class="note">Rerolls left: <b>${S.rerolls}</b></span><button class="btn sm ghost" data-act="rr-team" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "season, new franchise" : "year, new team"}</button><button class="btn sm ghost" data-act="rr-year" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "franchise, new season" : "team, new year"}</button></div></div>
+          <div class="rerolls"><span class="note">Rerolls left: <b>${S.rerolls}</b></span><button class="btn sm ghost" data-act="rr-team" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "season, new franchise" : "year, new team"}</button><button class="btn sm ghost" data-act="rr-year" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "franchise, new season" : "team, new year"}</button><button class="btn sm ghost" data-act="rr-any" ${S.rerolls ? "" : "disabled"}>New ${ipl ? "franchise, new season" : "team, new year"}</button></div></div>
           <p class="note">Tap a player to see where he fits. Numbers are for that ${ipl ? "IPL season" : "calendar year"}.</p>
           ${anyFit ? "" : `<p class="warn">Nobody in this squad fits your open slots.</p><button class="btn" data-act="skip">Roll again</button>`}
           ${squadView()}
@@ -398,7 +398,9 @@ function feedAdd(cls, html) { M.feed.unshift({ cls, html, k: ++M.seq }); if (M.f
 function ballText(ev) {
   const who = `${esc(ev.bowler)} to ${esc(ev.batter)}`;
   if (ev.extra) return `${who}: wide`;
-  if (ev.wicket) return `<b class="out">OUT</b> ${esc(ev.batter)}, ${esc(ev.wicket)} off ${esc(ev.bowler)}, ${esc(ev.batterScore)}`;
+  if (ev.wicket) return `<b class="out">OUT${ev.review === "overturned" ? " on review" : ""}</b> ${esc(ev.batter)}, ${esc(ev.wicket)} off ${esc(ev.bowler)}, ${esc(ev.batterScore)}${ev.review === "lost" ? " · review lost" : ""}${ev.hattrick ? ` · <b class="ms">HAT-TRICK for ${esc(ev.bowler)}!</b>` : ""}`;
+  if (ev.review === "saved") return `${who}: given out, but the review saves ${esc(ev.batter)}! <b class="ms">Not out</b>`;
+  if (ev.review === "lost") return `${who}: lbw reviewed, still not out. Review lost`;
   const r = ev.runs;
   const t = r === 4 ? "<b>FOUR</b>" : r === 6 ? "<b>SIX</b>" : r === 0 ? "no run" : plural(r, "run");
   return `${who}: ${t}${ev.milestone ? ` · <b class="ms">${esc(ev.batter)} reaches ${ev.milestone}</b>` : ""}`;
@@ -416,6 +418,7 @@ function consume(ev) {
     if (!ev.extra) M.crease[ev.batter] = ev.batterScore;
     if (ev.wicket) { delete M.crease[ev.batter]; if (ev.newBatter) M.crease[ev.newBatter] = "0 (0)"; }
     M.chips.push(ev.extra ? "wd" : ev.wicket ? "W" : String(ev.runs));
+    if (!M.ff && (ev.milestone || ev.hattrick)) M.cel = ev.hattrick ? { kind: "hat", who: ev.bowler, team: M.names[1 - ev.side] } : { kind: ev.milestone >= 100 ? "ton" : "fifty", n: ev.milestone, who: ev.batter, team: M.names[ev.side], score: ev.batterScore };
     if (M.view === "ball") feedAdd(ev.wicket ? "wkt" : ev.runs >= 4 ? "bdry" : "", `<span class="bn">${ev.over}.${ev.ball}</span> ${ballText(ev)}`);
     else if (ev.wicket || ev.milestone) M.notes.push(ev.wicket ? `<b class="out">OUT</b> ${esc(ev.batter)} ${esc(ev.batterScore)}` : `<b class="ms">${esc(ev.batter)} ${ev.milestone}</b>`);
     return;
@@ -434,6 +437,17 @@ function consume(ev) {
     M.inns.push(ev.result); M.live = null; M.crease = {};
     feedAdd("inn", `<b>${esc(ev.text)}</b>`);
   }
+}
+function celebrate(c) {
+  const big = c.kind === "hat" ? "Hat-trick" : c.kind === "fifty" ? "Fifty" : c.n === 100 ? "Hundred" : c.n === 200 ? "Double hundred" : String(c.n);
+  const colors = c.kind === "hat" ? ["#e0533d", "#f4b63d", "#eef1e6"] : c.kind === "ton" ? ["#f4b63d", "#ffe08a", "#eef1e6", "#7fd1a8"] : ["#eef1e6", "#a9b9a8", "#f4b63d"];
+  const n = reduced ? 0 : c.kind === "fifty" ? 28 : 70;
+  const bits = Array.from({ length: n }, () => `<i class="cf" style="--x:${(Math.random() * 100).toFixed(1)}vw;--c:${colors[Math.floor(Math.random() * colors.length)]};--d:${(1.6 + Math.random() * 1.4).toFixed(2)}s;--dl:${(Math.random() * 0.5).toFixed(2)}s;--r:${Math.floor(Math.random() * 360)}deg"></i>`).join("");
+  const el = document.createElement("div");
+  el.className = `cele ${c.kind}`; el.setAttribute("role", "status");
+  el.innerHTML = `${bits}<div class="cele-in">${c.kind === "hat" ? '<span class="hatballs" aria-hidden="true"><i>W</i><i>W</i><i>W</i></span>' : ""}<span class="cele-big">${esc(big)}</span><span class="cele-who">${esc(c.who)}</span><span class="cele-sub">${c.kind === "hat" ? "Three wickets in three balls" : esc(c.score)} · ${esc(c.team)}</span></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
 }
 function delayFor(ev) {
   if (M.ff) return 0;
@@ -458,6 +472,7 @@ function pump() {
     if (ev.type === "innings") ev = { ...ev, result: slimInn(ev.result) };
     consume(ev);
     if (R && R.host) send({ t: "ev", ev });
+    if (M.cel) { celebrate(M.cel); M.cel = null; delay = 2400; break; }
     if (ev.type === "innings" && M.ff === "innings") { M.ff = null; delay = 1200; break; }
     delay = delayFor(ev);
     if (delay > 0) break;
@@ -515,7 +530,7 @@ function decHTML() {
   if (M.remoteWait) return `<div class="dec wait" role="status">${esc(M.remoteWait)} is making a captain's call…</div>`;
   const d = M.pending; if (!d) return "";
   const st = d.state ? `<p class="note">${d.state.runs}/${d.state.wk} after ${overs(d.state.balls)} overs${d.state.target ? `, chasing ${d.state.target}` : ""}</p>` : "";
-  return `<div class="dec" role="group" aria-labelledby="dec-q"><span class="eyebrow">Your call</span><h3 id="dec-q">${esc(d.prompt)}</h3>${st}
+  return `<div class="dec${d.kind === "scenario" || d.kind === "review" ? " scen" : ""}" role="group" aria-labelledby="dec-q"><span class="eyebrow">${d.kind === "review" ? "Review?" : d.kind === "scenario" ? "Captain's dilemma" : "Your call"}</span><h3 id="dec-q">${esc(d.prompt)}</h3>${st}
     <div class="dopts${d.options.length > 4 ? " many" : ""}">${d.options.map(o => `<button class="dopt${o.id === d.def ? " def" : ""}" data-act="ans" data-v="${esc(o.id)}"><b>${esc(o.label)}</b><span>${esc(o.desc)}</span>${o.id === d.def ? "<em>Captain's pick</em>" : ""}</button>`).join("")}</div>
     <button class="linkbtn" data-act="autoall">Let the captain make every call for the rest of this match</button></div>`;
 }
@@ -670,7 +685,7 @@ function onMsg(m) {
       M.remote = true;
       S.screen = "match"; render(); window.scrollTo(0, 0);
       return;
-    case "ev": if (M && M.remote && !M.done && m.ev) { M.remoteWait = null; consume(m.ev); updateMatch(); } return;
+    case "ev": if (M && M.remote && !M.done && m.ev) { M.remoteWait = null; consume(m.ev); updateMatch(); if (M.cel) { celebrate(M.cel); M.cel = null; } } return;
     case "ask": if (M && M.remote && !M.done && m.d && Array.isArray(m.d.options)) { M.remoteWait = null; M.pending = m.d; updateMatch(true); } return;
     case "wait": if (M && M.remote && !M.done) { M.remoteWait = R.oppName; updateMatch(); } return;
     case "end":
@@ -754,7 +769,7 @@ document.addEventListener("click", e => {
     if (a === "roll" && die && !reduced) { b.disabled = true; const t = setInterval(() => { die.textContent = faces[n++ % 6]; if (n > 7) { clearInterval(t); doRoll(); render(); } }, 60); return; }
     doRoll(); return render();
   }
-  if (a === "rr-team" || a === "rr-year") { if (S.rerolls > 0) { S.rerolls--; doRoll(a === "rr-team" ? "team" : "year"); render(); } return; }
+  if (a === "rr-team" || a === "rr-year" || a === "rr-any") { if (S.rerolls > 0) { S.rerolls--; doRoll(a.slice(3)); render(); } return; }
   if (a === "sel") { S.sel = S.sel === b.dataset.id ? null : b.dataset.id || null; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
   if (a === "pick") {
     const p = sqCache().find(q => q.ident === b.dataset.id); if (!p) return;
