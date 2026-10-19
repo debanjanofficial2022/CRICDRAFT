@@ -48,17 +48,8 @@ export function rerollYear(r, data, fmt, key) { // same team, different year
   const t = teamOf(key), opts = keysFor(data, fmt).filter(k => teamOf(k) === t && k !== key);
   return opts.length ? opts[Math.floor(r() * opts.length)] : roll(r, data, fmt);
 }
-// Each roll shows CARDS players from the squad, at least one of whom fits an open slot when possible.
-export const CARDS = 5;
+// Rerolls per draft: keep the year and change the team, or keep the team and change the year.
 export const REROLLS = 2;
-export function deal(r, players, openSlots, allow) {
-  const pool = allow ? players.filter(allow) : [...players];
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const hand = pool.slice(0, CARDS);
-  const fits = p => openSlots.some(s => SLOT[s].ok(p));
-  if (!hand.some(fits)) { const f = pool.slice(CARDS).find(fits); if (f) hand[hand.length - 1] = f; }
-  return hand;
-}
 
 // ---------- campaigns ----------
 const sidesCache = {};

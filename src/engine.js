@@ -37,9 +37,10 @@ export const PLANS = {
 // ---------- players ----------
 export function makePlayer(data, entry, team, year) {
   const [pi, bat, bowl, flags] = entry;
+  const st = entry.length >= 12 ? entry.slice(4, 12) : null; // season: m, runs, avg*10, sr, 100s, wkts, econ*10, 5w
   const [name, meta, full, ident] = data.players[pi];
   let style = meta[1] === "S" ? "spin" : meta[1] === "P" ? "pace" : bowl > 0 ? "pace" : "none";
-  return { pi, name, full: full || name, ident: ident || name, meta, bat, bowl, keeper: !!(flags & 1), opener: !!(flags & 2), overseas: !!(flags & 4), style, arm: meta[2], hand: meta[3], role: meta[0], team, year };
+  return { pi, name, full: full || name, ident: ident || name, meta, bat, bowl, keeper: !!(flags & 1), opener: !!(flags & 2), overseas: !!(flags & 4), style, arm: meta[2], hand: meta[3], role: meta[0], team, year, st };
 }
 export function squad(data, fmt, key) {
   const [team, year] = [key.slice(0, key.lastIndexOf(" ")), +key.slice(key.lastIndexOf(" ") + 1)];
@@ -189,7 +190,7 @@ export function* inningsGen(r, batting, bowling, opts) {
         field = FIELDS[c] || FIELDS.balanced;
       }
       let nb = null;
-      const askNow = askBowl && !autoBowl && (fmt !== "test" || testSession || !overBowler || bc.get(overBowler).spell >= 6);
+      const askNow = askBowl && !autoBowl && (fmt === "test" ? (testSession || !overBowler || bc.get(overBowler).spell >= 6) : (!!ph || overNo >= opts.maxOvers - (fmt === "t20" ? 4 : 5)));
       if (askNow) {
         const avail = use.filter(b => b !== last && bc.get(b).balls / 6 < maxPer);
         const list = avail.length ? avail : use.filter(b => bc.get(b).balls / 6 < maxPer);
@@ -235,7 +236,7 @@ export function* inningsGen(r, batting, bowling, opts) {
     const bowlerName = (overBowler.ref || overBowler).name;
     if (res.extra) {
       runs++; extras++; bs.r++; overRuns++;
-      const ev = { type: "ball", inn: opts.inn, over: overNo, ball: balls % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 1, extra: true, score: state() };
+      const ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: balls % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 1, extra: true, score: state() };
       overBalls.push("wd"); yield ev; continue;
     }
     balls++; bs.balls++; batter.b++;
@@ -245,14 +246,14 @@ export function* inningsGen(r, batting, bowling, opts) {
       const how = pick(r, HOW[overBowler.style === "spin" ? "spin" : "pace"]);
       batter.out = { how, bowler: bowlerName };
       fall.push(runs);
-      ev = { type: "ball", inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 0, wicket: how, batterScore: `${batter.r} (${batter.b})`, score: state() };
+      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: 0, wicket: how, batterScore: `${batter.r} (${batter.b})`, score: state() };
       if (wk < 10) { card[next].in = true; striker = next; next++; ev.newBatter = card[striker].p.name; }
       if ([3, 5, 7].includes(wk)) wicketPrompt = true;
       overBalls.push("W");
     } else {
       runs += res.runs; batter.r += res.runs; bs.r += res.runs; overRuns += res.runs;
       if (res.runs === 4) batter.f++; if (res.runs === 6) batter.s++;
-      ev = { type: "ball", inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: res.runs, score: state(), milestone: (batter.r >= 100 && batter.r - res.runs < 100) ? 100 : (batter.r >= 50 && batter.r - res.runs < 50) ? 50 : null, batterScore: `${batter.r} (${batter.b})` };
+      ev = { type: "ball", side: opts.batSide, inn: opts.inn, over: overNo, ball: (balls - 1) % 6 + 1, bowler: bowlerName, batter: batter.p.name, runs: res.runs, score: state(), milestone: (batter.r >= 100 && batter.r - res.runs < 100) ? 100 : (batter.r >= 50 && batter.r - res.runs < 50) ? 50 : null, batterScore: `${batter.r} (${batter.b})` };
       if (res.runs % 2 === 1) [striker, non] = [non, striker];
       overBalls.push(String(res.runs));
     }
@@ -260,7 +261,7 @@ export function* inningsGen(r, batting, bowling, opts) {
     const chased = opts.target != null && runs >= opts.target;
     if (balls % 6 === 0 || chased || wk >= 10 || balls >= maxBalls) {
       if (balls % 6 === 0) { if (overRuns === 0) bs.m++; if (fmt === "test") bs.spell++; last = overBowler; [striker, non] = [non, striker]; }
-      yield { type: "over", inn: opts.inn, over: overNo, bowler: bowlerName, figures: fig(bs), runs: overRuns, wickets: overWk, balls: overBalls, score: state(),
+      yield { type: "over", side: opts.batSide, inn: opts.inn, over: overNo, bowler: bowlerName, figures: fig(bs), runs: overRuns, wickets: overWk, balls: overBalls, score: state(),
         batters: [card[striker], card[non]].filter(c => c && c.in && !c.out).map(c => `${c.p.name} ${c.r} (${c.b})`) };
       overBalls = [];
       if (chased) break;

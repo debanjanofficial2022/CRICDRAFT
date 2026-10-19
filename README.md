@@ -1,6 +1,6 @@
 # CricDraft
 
-A cricket draft game in the spirit of 7a0. Roll a real side from 1983 to today (for example *West Indies 1984*, *India 2011* or *Chennai Super Kings 2010*), take one of five players it deals you, and repeat until you have an XI. Then try to go unbeaten.
+A cricket draft game in the spirit of 7a0. Roll a real side from 1983 to today (for example *West Indies 1984*, *India 2011* or *Chennai Super Kings 2010*), see its whole squad with each player's numbers from that season, take one player, and repeat until you have an XI. Then try to go unbeaten.
 
 | Format | Campaign | Perfect run |
 |---|---|---|
@@ -9,7 +9,13 @@ A cricket draft game in the spirit of 7a0. Roll a real side from 1983 to today (
 | Test | World Test Championship: six two-Test series, then the final (sides from 1983) | 13–0 |
 | IPL | Full season: fourteen league games and the playoffs, at most four overseas players (seasons from 2008) | 16–0 |
 
-You choose your team mix (batters, all-rounders, spinners, pace bowlers; two openers and a keeper are always in), get three rerolls per draft, pick a game plan, and every match is simulated ball by ball with pitches that suit pace or spin. Daily mode gives everyone with the same format and mix the same rolls and fixtures.
+You choose your team mix (batters, all-rounders, spinners, pace bowlers; two openers and a keeper are always in), get two rerolls per draft and pick a game plan. Every match is simulated ball by ball on pitches that suit pace or spin. Watch it ball by ball or over by over and make the captain's calls (toss, batting approach, field, bowling changes, and in Tests declarations and the follow-on), or go straight to the result.
+
+## Play with a friend
+Create a room and send the link. Both players draft from the same rolls, then play each other head to head, each making their own captain's calls. Rooms connect the two browsers directly with [PeerJS](https://peerjs.com) (its free public broker only introduces the two browsers); there is no game server and nothing is stored. Some strict office or school networks block direct connections.
+
+## Realism
+`pipeline/calibrate.mjs` replays 8,099 real international and IPL results between sides in the data and tunes how much skill decides each ball, plus how much each player's form swings from match to match, so favourites win about as often as they really did. Tests also lose time to rain, so roughly a quarter are drawn.
 
 ## How players are rated
 Each player is rated for the team and year you roll, from his record over a five-year window around that season (weighted towards the season itself). Batting uses average and strike rate; bowling uses average and economy. Every number is first adjusted for how easy runs were that year, so a 1985 opener and a 2023 opener are compared fairly, and the result is ranked against every rated player in that format (35–99). Players who rarely bowl get no bowling rating.
