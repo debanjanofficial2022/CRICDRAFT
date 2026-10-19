@@ -13,6 +13,19 @@ const SPEEDS = [1, 2, 4];
 const PEER_SRC = "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
 const PEER_PREFIX = "cricdraft-room-";
 const SOLO = "Your XI";
+const PHOTOS = window.CRICDRAFT_PHOTOS || {};
+// Freely licensed photos from Wikimedia Commons, matched by ESPNcricinfo ID through Wikidata.
+function photoOf(p) {
+  const id = String(p.ident || ""); if (!id.startsWith("ci:")) return null;
+  const x = PHOTOS[id.slice(3)]; if (!x) return null;
+  const src = x[0].replace(/^T:/, "https://upload.wikimedia.org/wikipedia/commons/thumb/").replace(/^U:/, "https://upload.wikimedia.org/wikipedia/commons/");
+  return { src, author: x[1], license: x[2], page: "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(x[3].replace(/ /g, "_")) };
+}
+function portrait(p) {
+  const ph = photoOf(p);
+  if (!ph) return `<figure class="portrait none"><span class="ini-badge" aria-hidden="true">${esc(initials(p.name))}</span><figcaption>No free photo yet</figcaption></figure>`;
+  return `<figure class="portrait"><img src="${esc(ph.src)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('none');this.remove()"><span class="ini-badge" aria-hidden="true">${esc(initials(p.name))}</span><figcaption>Photo: <a href="${esc(ph.page)}" target="_blank" rel="noopener">${esc(ph.author || "Wikimedia Commons")}</a>, ${esc(ph.license || "see file page")}</figcaption></figure>`;
+}
 
 let S = null; // the current draft and campaign (or friend game)
 let M = null; // the match being watched
@@ -240,7 +253,7 @@ function playerRow(p) {
     <button class="pl-main" data-act="sel" data-id="${esc(p.ident)}" ${why ? "disabled" : ""} aria-expanded="${sel}">
       <span class="nm"><b>${esc(p.name)}${isIPL() && p.overseas ? ' <i class="os">OS</i>' : ""}</b><small>${esc(roleLine(p))}${why ? ` · <em>${why}</em>` : ""}</small></span>${statCells(p)}
     </button>
-    ${sel ? `<div class="put"><span>Put him in as</span>${fits.map(s => `<button class="btn sm" data-act="pick" data-id="${esc(p.ident)}" data-slot="${s}">${SLOT[s].label}</button>`).join("")}<button class="linkbtn" data-act="sel" data-id="">Cancel</button></div>` : ""}
+    ${sel ? `<div class="put">${portrait(p)}<div class="put-acts"><span>Put him in as</span>${fits.map(s => `<button class="btn sm" data-act="pick" data-id="${esc(p.ident)}" data-slot="${s}">${SLOT[s].label}</button>`).join("")}<button class="linkbtn" data-act="sel" data-id="">Cancel</button></div></div>` : ""}
   </li>`;
 }
 function squadView() {
