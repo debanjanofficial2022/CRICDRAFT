@@ -9,7 +9,7 @@ A cricket draft game in the spirit of 7a0. Roll a real side from 1983 to today (
 | Test | World Test Championship: six two-Test series, then the final (sides from 1983) | 13–0 |
 | IPL | Full season: fourteen league games and the playoffs, at most four overseas players (seasons from 2008) | 16–0 |
 
-Two openers and a wicketkeeper are fixed; the other eight places take anyone you like. You get two rerolls per draft and pick a game plan. Every match is simulated ball by ball on pitches that suit pace or spin. Watch it ball by ball or over by over and make the captain's calls (toss, batting approach, field, bowling changes, and in Tests declarations and the follow-on), or go straight to the result.
+Two openers and a wicketkeeper are fixed; before the draft you choose how the other eight split between batters, all-rounders, spinners and pace bowlers. You get two rerolls per draft and pick a game plan. Every match is simulated ball by ball on pitches that suit pace or spin. Watch it ball by ball or over by over and make the captain's calls (toss, batting approach, field, bowling changes, and in Tests declarations and the follow-on), or go straight to the result.
 
 ## Play with a friend
 Create a room and send the link. Both players draft from the same rolls, then play each other head to head, each making their own captain's calls. Rooms connect the two browsers directly with [PeerJS](https://peerjs.com) (its free public broker only introduces the two browsers); there is no game server and nothing is stored. Some strict office or school networks block direct connections.

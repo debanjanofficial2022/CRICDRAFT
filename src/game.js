@@ -26,19 +26,16 @@ export const PRESETS = {
   bowling: { label: "Five bowlers", mix: { bat: 2, ar: 1, spin: 2, pace: 3 } },
   spin: { label: "Spin attack", mix: { bat: 3, ar: 1, spin: 3, pace: 1 } },
 };
-export const MIX_LIMITS = { bat: [0, 6], ar: [0, 5], spin: [0, 5], pace: [0, 6] };
-// Two openers and a keeper are fixed; the other eight places take anyone.
-export const slotsFor = () => ["OP", "OP", "WK", ...Array(8).fill("ANY")];
-// Older presets, kept so saved settings and old tools still load.
-export const slotsForMix = mix => ["OP", "OP", ...Array(mix.bat).fill("BAT"), "WK", ...Array(mix.ar).fill("AR"), ...Array(mix.spin).fill("SPIN"), ...Array(mix.pace).fill("PACE")];
+export const MIX_LIMITS = { bat: [0, 8], ar: [0, 8], spin: [0, 8], pace: [0, 8] };
+// Two openers and a keeper are fixed; the player chooses how the other eight split.
+export const slotsFor = mix => ["OP", "OP", ...Array(mix.bat).fill("BAT"), "WK", ...Array(mix.ar).fill("AR"), ...Array(mix.spin).fill("SPIN"), ...Array(mix.pace).fill("PACE")];
 export function mixProblem(mix, fmt) {
   if (!mix) return null;
   const total = mix.bat + mix.ar + mix.spin + mix.pace, bowlers = mix.ar + mix.spin + mix.pace;
   if (total !== FLEX) return `Choose ${FLEX} players besides the openers and keeper (now ${total}).`;
-  if (bowlers < 4) return "Pick at least four players who bowl.";
   return null;
 }
-export const mixWarning = (mix, fmt) => (fmt !== "test" && mix.ar + mix.spin + mix.pace < 5 ? "Only four bowlers: a part-timer will have to bowl the rest of the overs." : null);
+export const mixWarning = (mix, fmt) => { const n = mix.ar + mix.spin + mix.pace; return n < 5 ? (n === 0 ? "Nobody in this XI bowls: the batters will have to share every over." : `Only ${n} bowler${n === 1 ? "" : "s"}: part-timers will have to bowl the rest of the overs.`) : null; };
 
 // A batter used out of position at the top loses a little.
 export const effective = (p, slot) => (slot === "OP" && !p.opener ? { ...p, bat: Math.max(35, p.bat - 4) } : p);

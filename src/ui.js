@@ -106,7 +106,7 @@ function fly(from, i, p) {
 function newRun(o) {
   S = {
     fmt: o.fmt, mix: { ...o.mix }, seed: o.seed, friend: !!o.friend,
-    slots: slotsFor().map(s => ({ s, p: null })), used: [], rollNo: 0, rrNo: 0, rerolls: REROLLS, key: null, sel: null, sq: null, justPicked: null,
+    slots: slotsFor(o.mix).map(s => ({ s, p: null })), used: [], rollNo: 0, rrNo: 0, rerolls: REROLLS, key: null, sel: null, sq: null, justPicked: null,
     plan: "balanced", screen: "draft", campaign: null, results: [], matches: [], idx: 0, alive: true, notes: [], open: null, view: store.get("view", "over"),
   };
   M = null; render(); window.scrollTo(0, 0);
@@ -151,11 +151,10 @@ function mixView() {
   const prob = mixProblem(home.mix, home.fmt), warn = !prob && mixWarning(home.mix, home.fmt);
   const total = MIXKEYS.reduce((a, [k]) => a + home.mix[k], 0);
   const preset = Object.entries(PRESETS).find(([, p]) => MIXKEYS.every(([k]) => p.mix[k] === home.mix[k]));
-  return `<fieldset class="mixbox" aria-label="Team mix"><legend>Team mix <span class="mixcount${total === FLEX ? "" : " bad"}">${total}/${FLEX}</span></legend>
-    <div class="presets">${Object.entries(PRESETS).map(([k, p]) => `<button class="chip-btn${preset && preset[0] === k ? " sel" : ""}" data-act="preset" data-k="${k}">${p.label}</button>`).join("")}</div>
-    <div class="fixed"><span class="tag">OPEN</span><span class="tag">OPEN</span><span class="tag">WK</span><span class="note">Two openers and a wicketkeeper are always in.</span></div>
+  return `<fieldset class="mixbox" aria-label="Team make-up"><legend>Team make-up: the other eight <span class="mixcount${total === FLEX ? "" : " bad"}">${total}/${FLEX}</span></legend>
+    <div class="fixed"><span class="tag">OPEN</span><span class="tag">OPEN</span><span class="tag">WK</span><span class="note">Two openers and a wicketkeeper are always in. Split the other eight however you like.</span></div>
     <div class="steppers">${MIXKEYS.map(([k, l, d]) => `<div class="step"><div><b>${l}</b><span>${d}</span></div>
-      <div class="ctrl"><button class="sbtn" data-act="mix" data-k="${k}" data-d="-1" aria-label="One fewer ${l.toLowerCase()}" ${home.mix[k] <= MIX_LIMITS[k][0] ? "disabled" : ""}>−</button><output>${home.mix[k]}</output><button class="sbtn" data-act="mix" data-k="${k}" data-d="1" aria-label="One more ${l.toLowerCase()}" ${home.mix[k] >= MIX_LIMITS[k][1] ? "disabled" : ""}>+</button></div></div>`).join("")}</div>
+      <div class="ctrl"><button class="sbtn" data-act="mix" data-k="${k}" data-d="-1" aria-label="One fewer ${l.toLowerCase()}" ${home.mix[k] <= MIX_LIMITS[k][0] ? "disabled" : ""}>−</button><output>${home.mix[k]}</output><button class="sbtn" data-act="mix" data-k="${k}" data-d="1" aria-label="One more ${l.toLowerCase()}" ${home.mix[k] >= MIX_LIMITS[k][1] || total >= FLEX ? "disabled" : ""}>+</button></div></div>`).join("")}</div>
     ${prob ? `<p class="warn bad">${esc(prob)}</p>` : warn ? `<p class="warn">${esc(warn)}</p>` : ""}
   </fieldset>`;
 }
@@ -167,14 +166,14 @@ function roomPanel() {
     if (R.host) return `<div class="friend" aria-live="polite"><span class="eyebrow">Your room</span><div class="code">${esc(R.code)}</div>
       <p>${R.status === "waiting" ? "Send this link to your friend. The draft starts as soon as they join." : "Opening the room…"}</p>
       <div class="linkrow"><input id="roomlink" readonly value="${esc(link)}" aria-label="Room link"><button class="btn sm" data-act="copylink">Copy link</button></div>
-      <p class="note">You both draft from the same rolls in ${esc(FORMATS[home.fmt].label)}, then play each other.</p>
+      <p class="note">You both draft from the same rolls in ${esc(FORMATS[home.fmt].label)} with the team make-up above, then play each other.</p>
       <button class="linkbtn" data-act="leave">Cancel</button></div>`;
     return `<div class="friend" aria-live="polite"><p>Joining room <b>${esc(R.code)}</b>…</p><button class="linkbtn" data-act="leave">Cancel</button></div>`;
   }
   return `<div class="friend">
     <label class="field-l">Your name<input id="pname" maxlength="20" autocomplete="nickname" value="${esc(home.name)}" placeholder="Player"></label>
     <div class="fr-cols">
-      <div class="fr"><h3>Create a room</h3><p class="note">You choose the format. Your friend gets the same rolls.</p><button class="btn" data-act="create" >Create room</button></div>
+      <div class="fr"><h3>Create a room</h3><p class="note">You choose the format and team make-up. Your friend gets the same rolls.</p><button class="btn" data-act="create" ${mixProblem(home.mix, home.fmt) ? "disabled" : ""}>Create room</button></div>
       <div class="fr"><h3>Join a room</h3><label class="field-l">Room code<input id="jcode" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc(home.code)}" placeholder="ABCDE"></label><button class="btn ghost" data-act="join">Join</button></div>
     </div>
     ${home.err ? `<p class="warn bad" role="alert">${esc(home.err)}</p>` : ""}
@@ -184,7 +183,7 @@ function roomPanel() {
 
 function homeView() {
   const best = store.get("best", {}), f = FORMATS[home.fmt];
-  const prob = null;
+  const prob = mixProblem(home.mix, home.fmt);
   const invited = home.friend && home.code && !R;
   return `<section class="hero">
     <div class="board">
@@ -203,7 +202,7 @@ function homeView() {
       ${Object.entries(FORMATS).map(([k, x]) => `<label class="opt${home.fmt === k ? " sel" : ""}"><input type="radio" name="fmt" value="${k}" ${home.fmt === k ? "checked" : ""}><b>${x.label}</b><span>${x.event}</span><em>Perfect run: ${x.perfect}–0</em>${best[k] != null ? `<small>Your best: ${best[k]} wins</small>` : ""}</label>`).join("")}
     </fieldset>
     <p class="note fmtdesc">${esc(f.desc)}</p>
-    <p class="note fixednote"><span class="tag">OPEN</span><span class="tag">OPEN</span><span class="tag">WK</span> Two openers and a wicketkeeper are fixed. Fill the other eight places with anyone you like: batters, all-rounders, spinners or quicks.</p>
+    ${mixView()}
     <div class="startrow">
       <button class="btn big-btn" data-act="start" ${prob ? "disabled" : ""}>Play solo</button>
       <button class="btn big-btn ghost${home.friend ? " on" : ""}" data-act="friend" aria-expanded="${home.friend}">Play with a friend</button>
@@ -265,7 +264,7 @@ function draftView() {
       : !S.key ? `<div class="dice-wrap"><button class="dice" data-act="roll" aria-label="Roll for a team"><span id="die">${S.rollNo ? "⚄" : "⚀"}</span></button><p>Roll for a ${ipl ? "franchise" : "team"}. ${11 - filled()} to pick.${S.rerolls ? ` ${plural(S.rerolls, "reroll")} left.` : ""}</p></div>`
       : `<div class="rolled"><div class="rolled-head"><div><span class="eyebrow">You rolled</span><h2 id="rolled-name">${esc(S.key)}</h2></div>
           <div class="rerolls"><span class="note">Rerolls left: <b>${S.rerolls}</b></span><button class="btn sm ghost" data-act="rr-team" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "season, new franchise" : "year, new team"}</button><button class="btn sm ghost" data-act="rr-year" ${S.rerolls ? "" : "disabled"}>Same ${ipl ? "franchise, new season" : "team, new year"}</button></div></div>
-          ${bowlHint()}<p class="note">Tap a player to see where he fits. Numbers are for that ${ipl ? "IPL season" : "calendar year"}.</p>
+          <p class="note">Tap a player to see where he fits. Numbers are for that ${ipl ? "IPL season" : "calendar year"}.</p>
           ${anyFit ? "" : `<p class="warn">Nobody in this squad fits your open slots.</p><button class="btn" data-act="skip">Roll again</button>`}
           ${squadView()}
         </div>`}
@@ -282,7 +281,7 @@ function readyView() {
     <fieldset class="seg" aria-label="Game plan">
       ${[["attack", "Attacking", "More boundaries, more wickets lost."], ["balanced", "Balanced", "Play the situation."], ["defend", "Defensive", S.fmt === "test" ? "Bat time. Harder to lose, harder to win." : "Protect wickets, fewer boundaries."]].map(([k, l, d]) => `<label class="opt${S.plan === k ? " sel" : ""}"><input type="radio" name="plan" value="${k}" ${S.plan === k ? "checked" : ""}><b>${l}</b><span>${d}</span></label>`).join("")}
     </fieldset>
-    <h2>Batting order</h2><p class="note">Openers first, then the rest by batting rating.</p><div class="ready-xi">${fieldSVG(S.slots)}<ol class="slots compact">${S.slots.map(slotRow).join("")}</ol></div>
+    <h2>Batting order</h2><p class="note">Openers, batters, keeper, all-rounders, then bowlers.</p><div class="ready-xi">${fieldSVG(S.slots)}<ol class="slots compact">${S.slots.map(slotRow).join("")}</ol></div>
     ${R ? `<button class="btn big-btn" data-act="lock">Lock in my XI</button>` : `<button class="btn big-btn" data-act="go">Start the ${FORMATS[S.fmt].event}</button>`}
   </section>`;
 }
@@ -586,6 +585,7 @@ function peerErr(e) {
 }
 function roomFail(msg) { if (!R) return; R.err = msg; try { R.peer && R.peer.destroy(); } catch {} if (!S) render(); else { R.lost = true; refreshStrip(); } }
 async function createRoom() {
+  if (mixProblem(home.mix, home.fmt)) return;
   R = mkRoom(true, newCode()); render();
   try { await loadPeer(); } catch (e) { return roomFail(e.message); }
   openHost();
@@ -654,6 +654,7 @@ function onMsg(m) {
       if (R.host || !FORMATS[m.fmt] || !m.mix) return;
       R.oppName = cleanName(m.name, "Player 1"); if (R.oppName === R.name) R.name += " (2)";
       R.fmt = m.fmt; R.mix = { bat: +m.mix.bat || 0, ar: +m.mix.ar || 0, spin: +m.mix.spin || 0, pace: +m.mix.pace || 0 }; R.seed = String(m.seed);
+      if (mixProblem(R.mix, R.fmt)) return roomFail("The room's settings didn't make sense. Ask your friend to create a new room.");
       return startFriendDraft();
     case "progress": R.oppPicks = Math.max(0, Math.min(11, +m.n || 0)); return refreshStrip();
     case "xi": {
@@ -763,7 +764,7 @@ document.addEventListener("click", e => {
     if (!reduced) fly(from, i, p); else S.justPicked = null;
     return;
   }
-  if (a === "ready") { orderXI(); S.screen = "ready"; render(); return window.scrollTo(0, 0); }
+  if (a === "ready") { S.screen = "ready"; render(); return window.scrollTo(0, 0); }
   if (a === "back-draft") { S.screen = "draft"; return render(); }
   if (a === "go") { S.campaign = buildCampaign(rng(hashSeed(S.seed + "|campaign")), DATA, S.fmt); S.screen = "camp"; render(); return window.scrollTo(0, 0); }
   if (a === "lock") { R.locked = true; send({ t: "xi", xi: serialXI(), plan: S.plan }); S.screen = "h2h"; render(); return window.scrollTo(0, 0); }
