@@ -313,6 +313,27 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .mv > #m-done > .sc, .mv .sc { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
 
+/* campaign: play + awards */
+.fx .playnow { border: 0; padding: 0; display: grid; place-items: center; line-height: 1; cursor: pointer; background: var(--lamp); color: var(--lamp-ink); font-size: 1rem; }
+.fx.next .playnow { color: var(--lamp-ink); }
+.fx .playnow:hover { filter: brightness(1.08); }
+.watch .segbtns { align-self: flex-start; flex-wrap: wrap; }
+.segbtns.big .sb { font-size: .95rem; padding: 9px 14px; }
+.awards { display: flex; flex-direction: column; gap: 12px; }
+.aw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.aw { background: var(--board); box-shadow: inset 0 0 0 2px var(--rail); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.aw.pots { box-shadow: inset 0 0 0 3px var(--lamp); }
+.aw-name { font-family: var(--display); font-weight: 900; font-size: clamp(2rem, 7vw, 2.8rem); text-transform: uppercase; line-height: .95; color: var(--lamp); overflow-wrap: anywhere; }
+.aw > small { color: var(--chalk-dim); }
+.aw ol { list-style: none; margin: 0; padding: 0; }
+.aw li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--rail); }
+.aw li.mine .who b { color: var(--lamp); }
+.aw .rk { font-family: var(--mono); font-size: .7rem; color: var(--chalk-dim); }
+.aw .who { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.aw .who small, .aw .fig small { color: var(--chalk-dim); font-size: .74rem; }
+.aw .fig { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.15; }
+.aw .fig b { font-family: var(--display); font-weight: 900; font-size: 1.6rem; }
+
 /* celebrations */
 .cele { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 60; overflow: hidden; }
 .cele-in { position: relative; background: rgba(8,31,23,.94); border: 4px solid var(--lamp); padding: 18px 32px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 0 70px rgba(244,182,61,.45);

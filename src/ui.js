@@ -107,7 +107,7 @@ function newRun(o) {
   S = {
     fmt: o.fmt, mix: { ...o.mix }, seed: o.seed, friend: !!o.friend,
     slots: slotsFor(o.mix).map(s => ({ s, p: null })), used: [], rollNo: 0, rrNo: 0, rerolls: REROLLS, key: null, sel: null, sq: null, justPicked: null,
-    plan: "balanced", screen: "draft", campaign: null, results: [], matches: [], idx: 0, alive: true, notes: [], open: null, view: store.get("view", "over"),
+    plan: "balanced", screen: "draft", campaign: null, results: [], matches: [], idx: 0, alive: true, notes: [], open: null, view: store.get("campview", "over"),
   };
   M = null; render(); window.scrollTo(0, 0);
 }
@@ -138,6 +138,7 @@ function placePlayer(p, slotType) {
 /* ---------------- render ---------------- */
 function render() {
   const app = $("#app");
+  if (!S || S.screen !== "draft") document.querySelectorAll(".flyer").forEach(e => e.remove());
   if (!S) app.innerHTML = homeView();
   else if (S.screen === "draft") app.innerHTML = draftView();
   else if (S.screen === "ready") app.innerHTML = readyView();
@@ -332,7 +333,7 @@ function campaignView() {
     const res = S.results[i], m = S.matches[i];
     const locked = i > S.idx || (!S.alive && i >= S.idx);
     return head + `<li class="fx${res ? " r-" + res : ""}${i === S.idx && !over ? " next" : ""}${locked && !res ? " locked" : ""}">
-      <span class="res">${res || (i === S.idx && !over ? "▶" : "")}</span>
+      ${i === S.idx && !over ? `<button class="res playnow" data-act="play" aria-label="Play this match: ${esc(VIEWS[S.view][0].toLowerCase())}">▶</button>` : `<span class="res">${res || ""}</span>`}
       <span class="opp"><b>${esc(x.opp.name)}</b><small>${PITCHES[x.pitch].label}${S.fmt === "test" && x.test ? ` · ${["1st", "2nd"][x.test - 1]} Test` : ""} · str ${x.opp.str}</small></span>
       <span class="txt">${m ? esc(m.text.replace(SOLO, "You")) : ""}</span>
       ${m ? `<button class="linkbtn" data-act="card" data-i="${i}" aria-expanded="${S.open === i}">Scorecard</button>` : ""}
@@ -348,17 +349,57 @@ function campaignView() {
       : `<div class="verdict"><div class="big">${W}<span>–</span>${L}${D ? `<span>–</span>${D}` : ""}</div><p>Next: <b>${esc(nx.stage)}</b> v ${esc(nx.opp.name)} · ${PITCHES[nx.pitch].label}</p></div>`}
       ${over ? `<div class="ctl"><button class="btn" data-act="share">Copy result</button><button class="btn ghost" data-act="again">Play again</button></div>
         <textarea id="share-text" class="share" rows="4" readonly aria-label="Result to share">${esc(shareText())}</textarea>`
-      : `<div class="watch"><span class="eyebrow">Play the next match</span><div class="ctl">${Object.entries(VIEWS).map(([k, [l, d]]) => `<button class="btn${k === S.view ? "" : " ghost"}" data-act="watch" data-v="${k}" title="${esc(d)}">${l}</button>`).join("")}<button class="linkbtn" data-act="playall">Sim the rest</button></div>
-        <p class="note">Ball by ball and over by over ask for your calls: the toss, how your batters play, the field and who bowls${S.fmt === "test" ? ", declarations and the follow-on" : ""}.</p></div>`}
+      : `<div class="watch"><span class="eyebrow">How to watch</span>
+        <div class="segbtns big" role="group" aria-label="How to watch">${Object.entries(VIEWS).map(([k, [l, d]]) => `<button class="sb${k === S.view ? " on" : ""}" data-act="setview" data-v="${k}" aria-pressed="${k === S.view}" title="${esc(d)}">${l}</button>`).join("")}</div>
+        <p class="note">${esc(VIEWS[S.view][1])}.</p>
+        <div class="ctl"><button class="btn" data-act="play">▶ Play match ${S.idx + 1}</button><button class="linkbtn" data-act="playall">Sim the rest</button></div></div>`}
     </div>
+    ${over ? awardsHTML() : ""}
     <ol class="fixtures">${rows}</ol>
     <details class="how"><summary>Your XI</summary><ol class="slots compact">${S.slots.map(slotRow).join("")}</ol></details>
   </section>`;
 }
+// Tournament awards from every scorecard in the campaign (your XI and the opponents you met).
+function seriesStats() {
+  const P = new Map();
+  const get = (n, team) => { const k = team + "|" + n; if (!P.has(k)) P.set(k, { n, team, m: new Set(), r: 0, b: 0, outs: 0, inn: 0, hs: 0, hsNo: false, w: 0, rc: 0, bb: 0, best: [0, 0], f50: 0, h100: 0 }); return P.get(k); };
+  S.matches.forEach((m, mi) => {
+    if (!m) return;
+    const teams = [...new Set(m.inns.map(i => i.team))];
+    for (const inn of m.inns) {
+      const bowlTeam = teams.find(t => t !== inn.team) || "";
+      for (const c of inn.bat) { const p = get(c.n, inn.team); p.m.add(mi); p.r += c.r; p.b += c.b; p.inn++; if (c.out) p.outs++; if (c.r > p.hs || (c.r === p.hs && !c.out)) { p.hs = c.r; p.hsNo = !c.out; } if (c.r >= 100) p.h100++; else if (c.r >= 50) p.f50++; }
+      for (const o of inn.bowl) { const p = get(o.n, bowlTeam); p.m.add(mi); p.w += o.w; p.rc += o.r; p.bb += o.balls; if (o.w > p.best[0] || (o.w === p.best[0] && o.r < p.best[1])) p.best = [o.w, o.r]; }
+    }
+  });
+  const all = [...P.values()];
+  const runs = [...all].sort((a, b) => b.r - a.r || a.b - b.b).slice(0, 3);
+  const wkts = [...all].filter(p => p.w > 0).sort((a, b) => b.w - a.w || a.rc - b.rc).slice(0, 3);
+  const score = p => p.r + 22 * p.w + 15 * p.h100 + 5 * p.f50 + (p.team === SOLO ? 8 * p.m.size : 0);
+  const pots = [...all].sort((a, b) => score(b) - score(a))[0];
+  return { runs, wkts, pots };
+}
+const teamLabel = t => (t === SOLO ? "Your XI" : t);
+function awardsHTML() {
+  const st = seriesStats(); if (!st.pots) return "";
+  const ipl = S.fmt === "ipl";
+  const avg = p => (p.outs ? (p.r / p.outs).toFixed(1) : p.r ? "–" : "0");
+  const sr = p => (p.b ? (100 * p.r / p.b).toFixed(1) : "–");
+  const bavg = p => (p.w ? (p.rc / p.w).toFixed(1) : "–");
+  const row = (p, i, txt) => `<li${p.team === SOLO ? ' class="mine"' : ""}><span class="rk">${i + 1}</span><span class="who"><b>${esc(p.n)}</b><small>${esc(teamLabel(p.team))}</small></span><span class="fig">${txt}</span></li>`;
+  const pp = st.pots;
+  const potsLine = [pp.r ? `${pp.r} runs${pp.outs ? ` at ${avg(pp)}` : ""}` : "", pp.w ? `${pp.w} wickets${pp.w ? ` at ${bavg(pp)}` : ""}` : "", pp.h100 ? `${pp.h100} hundred${pp.h100 > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  return `<section class="awards" aria-label="Tournament awards"><h2>${ipl ? "Season awards" : "Tournament awards"}</h2>
+    <div class="aw-grid">
+      <div class="aw pots"><span class="eyebrow">Player of the ${ipl ? "season" : "series"}</span><div class="aw-name">${esc(pp.n)}</div><small>${esc(teamLabel(pp.team))} · ${pp.m.size} match${pp.m.size === 1 ? "" : "es"}</small><p>${esc(potsLine)}</p></div>
+      <div class="aw"><span class="eyebrow">${ipl ? "Orange Cap · most runs" : "Most runs"}</span><ol>${st.runs.map((p, i) => row(p, i, `<b>${p.r}</b><small>avg ${avg(p)} · SR ${sr(p)} · HS ${p.hs}${p.hsNo ? "*" : ""}</small>`)).join("")}</ol></div>
+      <div class="aw"><span class="eyebrow">${ipl ? "Purple Cap · most wickets" : "Most wickets"}</span><ol>${st.wkts.map((p, i) => row(p, i, `<b>${p.w}</b><small>avg ${bavg(p)} · best ${p.best[0]}/${p.best[1]}</small>`)).join("")}</ol></div>
+    </div></section>`;
+}
 function shareText() {
   const f = FORMATS[S.fmt], v = verdict();
   const sq = S.campaign.fixtures.map((x, i) => S.results[i] === "W" ? "🟩" : S.results[i] === "L" ? "🟥" : S.results[i] === "D" ? "⬜" : "⬛").join("");
-  return `CricDraft · ${f.event}\n${v.perfect ? `${v.rec} 🏆 Unbeaten` : `${v.title}, ${v.rec}`}\n${sq}\nXI: ${S.slots.map(x => x.p.name).join(", ")}\n${location.origin}${location.pathname}`;
+  return `CricDraft · ${f.event}\n${v.perfect ? `${v.rec} 🏆 Unbeaten` : `${v.title}, ${v.rec}`}\n${sq}${(() => { const st = seriesStats(); return st.pots ? `\nPlayer of the ${S.fmt === "ipl" ? "season" : "series"}: ${st.pots.n}${st.runs[0] ? ` · Most runs: ${st.runs[0].n} ${st.runs[0].r}` : ""}${st.wkts[0] ? ` · Most wickets: ${st.wkts[0].n} ${st.wkts[0].w}` : ""}` : ""; })()}\nXI: ${S.slots.map(x => x.p.name).join(", ")}\n${location.origin}${location.pathname}`;
 }
 function recordSolo(m) {
   S.matches[S.idx] = slimMatch(m);
@@ -783,10 +824,11 @@ document.addEventListener("click", e => {
   if (a === "back-draft") { S.screen = "draft"; return render(); }
   if (a === "go") { S.campaign = buildCampaign(rng(hashSeed(S.seed + "|campaign")), DATA, S.fmt); S.screen = "camp"; render(); return window.scrollTo(0, 0); }
   if (a === "lock") { R.locked = true; send({ t: "xi", xi: serialXI(), plan: S.plan }); S.screen = "h2h"; render(); return window.scrollTo(0, 0); }
-  if (a === "watch") {
-    const v = b.dataset.v; S.view = v === "result" ? S.view : v; store.set("view", S.view);
-    if (v === "result") { simNext(); S.open = S.idx - 1; return render(); }
-    return watchSolo(v);
+  if (a === "setview") { S.view = VIEWS[b.dataset.v] ? b.dataset.v : "over"; store.set("campview", S.view); return render(); }
+  if (a === "play") {
+    if (finished()) return;
+    if (S.view === "result") { simNext(); S.open = S.idx - 1; return render(); }
+    return watchSolo(S.view);
   }
   if (a === "playall") { while (!finished()) simNext(); S.open = null; return render(); }
   if (a === "card") { const i = +b.dataset.i; S.open = S.open === i ? null : i; return render(); }
@@ -803,8 +845,11 @@ document.addEventListener("click", e => {
   if (a === "mview") { M.view = b.dataset.v; store.set("view", M.view); if (S) S.view = M.view; return updateMatch(); }
   if (a === "speed") { M.speed = +b.dataset.v; store.set("speed", M.speed); updateMatch(); return pump(); }
   if (a === "pause") { M.paused = !M.paused; updateMatch(); return pump(); }
-  if (a === "ffinn") { M.ff = "innings"; return pump(); }
-  if (a === "ffall") { M.ff = "match"; return pump(); }
+  if (a === "ffinn" || a === "ffall") {
+    M.ff = a === "ffinn" ? "innings" : "match";
+    if (M.pending && !M.remote) { M.answer = M.pending.def; M.pending = null; }
+    return pump();
+  }
   if (a === "tocamp") { M = null; S.screen = "camp"; S.open = S.idx - 1; render(); return window.scrollTo(0, 0); }
   if (a === "rematch") { M = null; send({ t: "h2h" }); S.screen = "h2h"; render(); return window.scrollTo(0, 0); }
   if (a === "redraft") { R.seed = newSeed(); send({ t: "again", seed: R.seed }); M = null; return startFriendDraft(); }
