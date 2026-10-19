@@ -164,7 +164,8 @@ for fmt in ["test", "odi", "t20", "ipl"]:
                 sr = 100 * (acc["rb"] + pr["kb"] * pr["sr0"] / 100) / (acc["b_adj"] + pr["kb"])
                 ba = (acc["br"] + pr["k"] * pr["ba0"]) / (acc["w_adj"] + pr["k"])
                 eco = 6 * (acc["br"] + pr["kbb"] * pr["e0"] / 6) / (acc["bb_adj"] + pr["kbb"])
-                rows[fmt].append(dict(team=team, year=year, ident=ident, acc=acc, avg=avg, sr=sr, ba=ba, eco=eco,
+                sv = tab[ident].get(year) or dict.fromkeys(F, 0.0)
+                rows[fmt].append(dict(team=team, year=year, ident=ident, acc=acc, season=sv, avg=avg, sr=sr, ba=ba, eco=eco,
                     bv=bat_val(fmt, avg, sr), wv=bowl_val(fmt, ba, eco), bpm=acc["bb"] / max(1, acc["m"]),
                     pos=acc["pos"] / max(1, acc["i"]), qb=acc["o"] >= pr["minOut"], qw=acc["bb"] >= pr["minBall"]))
 
@@ -205,7 +206,11 @@ for fmt, rs in rows.items():
         keeper = is_keeper(r)
         opener = r["acc"]["i"] >= 3 and r["pos"] <= 2.4
         overseas = fmt == "ipl" and (d.get("country") or "India") != "India"
-        S[f"{r['team']} {r['year']}"].append([pi(r["ident"], keeper), r["bat"], r["bowl"], (1 if keeper else 0) | (2 if opener else 0) | (4 if overseas else 0)])
+        sv = r["season"]
+        # season line: matches, runs, average*10 (-1 = never out), strike rate (-1 = balls unknown), hundreds, wickets, economy*10 (-1 = did not bowl), five-fors
+        season = [int(sv["m"]), int(sv["r"]), int(round(10 * sv["r"] / sv["o"])) if sv["o"] else -1, int(round(100 * sv["rb"] / sv["b"])) if sv["b"] else -1, int(sv["h"]),
+                  int(sv["w"]), int(round(60 * sv["br"] / sv["bb"])) if sv["bb"] else -1, int(sv["w5"])]
+        S[f"{r['team']} {r['year']}"].append([pi(r["ident"], keeper), r["bat"], r["bowl"], (1 if keeper else 0) | (2 if opener else 0) | (4 if overseas else 0), *season])
     ok = {}
     for k, l in S.items():
         if any(x[3] & 1 for x in l) and sum(1 for x in l if x[2] > 0) >= 4 and len(l) >= 11: ok[k] = l

@@ -50,6 +50,7 @@ export function rerollYear(r, data, fmt, key) { // same team, different year
 }
 // Each roll shows CARDS players from the squad, at least one of whom fits an open slot when possible.
 export const CARDS = 5;
+export const REROLLS = 2;
 export function deal(r, players, openSlots, allow) {
   const pool = allow ? players.filter(allow) : [...players];
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
@@ -82,36 +83,36 @@ export function buildCampaign(r, data, fmt) {
   const fx = [];
   if (fmt === "t20") {
     const host = ["India", "Australia", "England", "West Indies", "Sri Lanka", "South Africa"][Math.floor(r() * 6)];
-    draw(r, top(0.8), 4, new Set()).forEach(o => fx.push({ stage: "Group", opp: o, pitch: pitchFor(r, host) }));
-    draw(r, top(0.45), 3, new Set()).forEach(o => fx.push({ stage: "Super 8", opp: o, pitch: pitchFor(r, host) }));
-    const ko = draw(r, top(0.2), 2, new Set());
+    draw(r, top(0.4), 4, new Set()).forEach(o => fx.push({ stage: "Group", opp: o, pitch: pitchFor(r, host) }));
+    draw(r, top(0.22), 3, new Set()).forEach(o => fx.push({ stage: "Super 8", opp: o, pitch: pitchFor(r, host) }));
+    const ko = draw(r, top(0.08), 2, new Set());
     fx.push({ stage: "Semi-final", opp: ko[0], pitch: pitchFor(r, host) }, { stage: "Final", opp: ko[1], pitch: pitchFor(r, host) });
     return { fmt, host, fixtures: fx };
   }
   if (fmt === "odi") {
     const host = ["India", "England", "Australia", "South Africa", "New Zealand", "Pakistan"][Math.floor(r() * 6)];
-    draw(r, top(0.85), 9, new Set()).forEach(o => fx.push({ stage: "League", opp: o, pitch: pitchFor(r, host) }));
-    while (fx.length < 9) fx.push({ stage: "League", opp: top(0.85)[Math.floor(r() * top(0.85).length)], pitch: pitchFor(r, host) });
-    const ko = draw(r, top(0.2), 2, new Set());
+    draw(r, top(0.45), 9, new Set()).forEach(o => fx.push({ stage: "League", opp: o, pitch: pitchFor(r, host) }));
+    while (fx.length < 9) fx.push({ stage: "League", opp: top(0.45)[Math.floor(r() * top(0.45).length)], pitch: pitchFor(r, host) });
+    const ko = draw(r, top(0.08), 2, new Set());
     fx.push({ stage: "Semi-final", opp: ko[0], pitch: pitchFor(r, host) }, { stage: "Final", opp: ko[1], pitch: pitchFor(r, host) });
     return { fmt, host, fixtures: fx };
   }
   if (fmt === "ipl") {
     // nine other franchises; five of them twice, as in a 10-team IPL
-    const opps = draw(r, top(0.5), 9, new Set());
+    const opps = draw(r, top(0.2), 9, new Set());
     const twice = new Set(opps.slice(0, 5));
     const list = [...opps, ...opps.filter(o => twice.has(o))];
     for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
     list.forEach((o, i) => fx.push({ stage: "League", opp: o, pitch: pitchFor(r, "IPL"), away: i % 2 === 1 }));
-    return { fmt, host: "India", fixtures: fx, playoffPool: top(0.12) };
+    return { fmt, host: "India", fixtures: fx, playoffPool: top(0.05) };
   }
   // World Test Championship: six two-Test series, alternating away and home
-  const opps = draw(r, top(0.8), 6, new Set());
+  const opps = draw(r, top(0.35), 6, new Set());
   opps.forEach((o, i) => {
     const away = i % 2 === 0;
     for (let t = 1; t <= 2; t++) fx.push({ stage: `Series ${i + 1}`, series: i, test: t, away, opp: o, pitch: away ? pitchFor(r, o.team) : pitchFor(r, "neutral") });
   });
-  const fin = top(0.15)[Math.floor(r() * top(0.15).length)];
+  const fin = top(0.06)[Math.floor(r() * top(0.06).length)];
   fx.push({ stage: "Final", opp: fin, pitch: ["green", "balanced", "green"][Math.floor(r() * 3)] });
   return { fmt, host: "Home and away", fixtures: fx };
 }
