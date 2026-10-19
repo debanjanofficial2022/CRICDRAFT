@@ -18,7 +18,7 @@ const PHOTOS = window.CRICDRAFT_PHOTOS || {};
 function photoOf(p) {
   const id = String(p.ident || ""); if (!id.startsWith("ci:")) return null;
   const x = PHOTOS[id.slice(3)]; if (!x) return null;
-  const src = x[0].replace(/^T:/, "https://upload.wikimedia.org/wikipedia/commons/thumb/").replace(/^U:/, "https://upload.wikimedia.org/wikipedia/commons/");
+  const src = x[0].replace(/^T:/, "https://upload.wikimedia.org/wikipedia/commons/").replace(/^U:/, "https://upload.wikimedia.org/wikipedia/commons/");
   return { src, author: x[1], license: x[2], page: "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(x[3].replace(/ /g, "_")) };
 }
 function portrait(p) {
