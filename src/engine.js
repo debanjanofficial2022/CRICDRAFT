@@ -72,12 +72,16 @@ export function strength(xi) {
   return Math.round((bats.reduce((a, b) => a + b, 0) / 7) * 0.5 + (bowls.reduce((a, b) => a + b, 0) / 5) * 0.5);
 }
 
+// How strongly skill differences decide a ball (fitted to real results in pipeline/calibrate.mjs), and
+// how much a player's form swings from match to match (rating points, standard deviation).
+export const TUNE = { skill: { t20: 0.6, ipl: 0.45, odi: 0.55, test: 0.7 }, form: { t20: 5, ipl: 6, odi: 6, test: 4 }, rain: { chance: 0.3, minOvers: 60, maxOvers: 220 } };
+
 // ---------- one ball ----------
 function ball(r, fmt, batter, bowler, ctx) {
   const B = BASE[fmt], P = PITCHES[ctx.pitch];
   if (r() < B.ex) return { extra: 1 };
   const styleMul = bowler.style === "spin" ? P.spin * (ctx.wear || 1) : P.pace * (ctx.newBall || 1);
-  const diff = (batter.bat - bowler.effBowl) / 100;
+  const diff = (batter.bat - bowler.effBowl) / 100 * TUNE.skill[ctx.tk || fmt];
   const a = ctx.aggr; // situational aggression, -1 (block) … +1.5 (slog)
   const ua = ctx.ua || 0; // a human captain's approach on top of the situation: risk rises faster than reward
   const F = ctx.field || FIELDS.balanced;
@@ -222,7 +226,7 @@ export function* inningsGen(r, batting, bowling, opts) {
 
     const day = fmt === "test" ? Math.floor(((opts.day0Ball || 0) + balls) / 540) + 1 : 1;
     const ctx = {
-      pitch: opts.pitch, plan: opts.plan, aggr: a, ua: askBat ? userAggr : 0, field: askBowl ? field : FIELDS.balanced,
+      tk: opts.fmt, pitch: opts.pitch, plan: opts.plan, aggr: a, ua: askBat ? userAggr : 0, field: askBowl ? field : FIELDS.balanced,
       wear: fmt === "test" ? 1 + 0.09 * (day - 1) : 1,
       newBall: fmt === "test" && balls % 480 < 90 ? 1.12 : (fmt !== "test" && overNo < (fmt === "t20" ? 2 : 6) ? 1.08 : 1),
     };
@@ -281,6 +285,13 @@ export function runAuto(gen, answer) {
 
 // ---------- matches (generators) ----------
 // sides: [{ name, xi }, { name, xi }] ; o: { pitch, plans:[p0,p1], human:[bool,bool], interactive }
+function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+// Each player has a good or bad day: ratings shift by a random amount for this match only.
+function onTheDay(r, fmt, side) {
+  const sd = TUNE.form[fmt] || 0;
+  if (!sd) return side;
+  return { ...side, xi: side.xi.map(p => { const g = gauss(r) * sd; return { ...p, bat: clamp(p.bat + g, 20, 110), bowl: p.bowl > 0 ? clamp(p.bowl + gauss(r) * sd, 20, 110) : 0, base: p }; }) };
+}
 function* toss(r, fmt, s, o) {
   const winner = r() < 0.5 ? 0 : 1;
   let choice = fmt === "test" ? (r() < 0.8 ? "bat" : "bowl") : (r() < 0.55 ? "bowl" : "bat");
@@ -294,7 +305,7 @@ function* toss(r, fmt, s, o) {
 
 export function* limitedGen(r, fmt, A, B, o) {
   const maxOvers = fmt === "odi" ? 50 : 20;
-  const s = [A, B];
+  const s = [onTheDay(r, fmt, A), onTheDay(r, fmt, B)];
   const human = o.human || [false, false];
   const batFirst = yield* toss(r, fmt, s, { ...o, human });
   const io = side => ({ fmt, maxOvers, pitch: o.pitch, plan: o.plans[side], batSide: side, interactive: o.interactive, humanBat: human[side], humanBowl: human[1 - side] });
@@ -309,9 +320,12 @@ export function* limitedGen(r, fmt, A, B, o) {
 }
 
 export function* testGen(r, A, B, o) {
-  const TOTAL = 5 * 90 * 6;
+  const s = [onTheDay(r, "test", A), onTheDay(r, "test", B)], human = o.human || [false, false];
+  // weather: some Tests lose time to rain
+  const lost = r() < TUNE.rain.chance ? Math.round(TUNE.rain.minOvers + r() * (TUNE.rain.maxOvers - TUNE.rain.minOvers)) : 0;
+  const TOTAL = (5 * 90 - lost) * 6;
   let used = 0;
-  const s = [A, B], human = o.human || [false, false];
+  if (lost) yield { type: "rain", overs: lost, text: `Rain will cost about ${lost} overs in this Test.` };
   const first = yield* toss(r, "test", s, { ...o, human });
   const second = 1 - first;
   const inns = [];

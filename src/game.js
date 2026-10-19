@@ -99,7 +99,7 @@ export function buildCampaign(r, data, fmt) {
   }
   if (fmt === "ipl") {
     // nine other franchises; five of them twice, as in a 10-team IPL
-    const opps = draw(r, top(0.2), 9, new Set());
+    const opps = draw(r, top(0.35), 9, new Set());
     const twice = new Set(opps.slice(0, 5));
     const list = [...opps, ...opps.filter(o => twice.has(o))];
     for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
@@ -107,7 +107,7 @@ export function buildCampaign(r, data, fmt) {
     return { fmt, host: "India", fixtures: fx, playoffPool: top(0.05) };
   }
   // World Test Championship: six two-Test series, alternating away and home
-  const opps = draw(r, top(0.35), 6, new Set());
+  const opps = draw(r, top(0.5), 6, new Set());
   opps.forEach((o, i) => {
     const away = i % 2 === 0;
     for (let t = 1; t <= 2; t++) fx.push({ stage: `Series ${i + 1}`, series: i, test: t, away, opp: o, pitch: away ? pitchFor(r, o.team) : pitchFor(r, "neutral") });
