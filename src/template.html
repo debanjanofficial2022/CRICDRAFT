@@ -76,6 +76,7 @@ fieldset.seg.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .chip-btn { background: transparent; color: var(--chalk); border: 2px solid var(--rail); border-radius: 3px; padding: 5px 10px; cursor: pointer; font-family: var(--mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
 .chip-btn.sel { border-color: var(--lamp); color: var(--lamp); }
 .fixed { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--mono); font-size: .65rem; }
+.fixednote .tag { font-family: var(--mono); font-size: .65rem; color: var(--lamp); border: 1px solid var(--rail); padding: 2px 6px; margin-right: 6px; }
 .fixed .tag { color: var(--lamp); border: 1px solid var(--rail); padding: 2px 6px; }
 .steppers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 .step { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; background: var(--board); min-width: 0; }
@@ -247,6 +248,7 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .put { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px 12px; background: var(--board); box-shadow: inset 3px 0 0 var(--lamp); }
 .put > span { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); }
 .rolled > .grp + .grp { margin-top: 8px; }
+.ready-xi .field { align-self: start; position: sticky; top: 16px; }
 .ready-xi { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 18px; align-items: start; }
 
 /* campaign: watch choice */

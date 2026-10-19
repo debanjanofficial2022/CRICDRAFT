@@ -16,6 +16,7 @@ export const SLOT = {
   AR: { label: "All-rounder", short: "AR", ok: p => p.bowl > 0 && p.bat >= 50 },
   SPIN: { label: "Spinner", short: "SPIN", ok: p => p.bowl > 0 && p.style === "spin" },
   PACE: { label: "Pace bowler", short: "PACE", ok: p => p.bowl > 0 && p.style === "pace" },
+  ANY: { label: "Add to XI", short: "ANY", ok: p => true },
 };
 // Two openers and a keeper are fixed; the other eight places are the player's choice.
 export const FLEX = 8;
@@ -26,8 +27,12 @@ export const PRESETS = {
   spin: { label: "Spin attack", mix: { bat: 3, ar: 1, spin: 3, pace: 1 } },
 };
 export const MIX_LIMITS = { bat: [0, 6], ar: [0, 5], spin: [0, 5], pace: [0, 6] };
-export const slotsFor = mix => ["OP", "OP", ...Array(mix.bat).fill("BAT"), "WK", ...Array(mix.ar).fill("AR"), ...Array(mix.spin).fill("SPIN"), ...Array(mix.pace).fill("PACE")];
+// Two openers and a keeper are fixed; the other eight places take anyone.
+export const slotsFor = () => ["OP", "OP", "WK", ...Array(8).fill("ANY")];
+// Older presets, kept so saved settings and old tools still load.
+export const slotsForMix = mix => ["OP", "OP", ...Array(mix.bat).fill("BAT"), "WK", ...Array(mix.ar).fill("AR"), ...Array(mix.spin).fill("SPIN"), ...Array(mix.pace).fill("PACE")];
 export function mixProblem(mix, fmt) {
+  if (!mix) return null;
   const total = mix.bat + mix.ar + mix.spin + mix.pace, bowlers = mix.ar + mix.spin + mix.pace;
   if (total !== FLEX) return `Choose ${FLEX} players besides the openers and keeper (now ${total}).`;
   if (bowlers < 4) return "Pick at least four players who bowl.";
