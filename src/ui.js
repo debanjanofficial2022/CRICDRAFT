@@ -24,7 +24,7 @@ function photoOf(p) {
 function portrait(p) {
   const ph = photoOf(p);
   if (!ph) return `<figure class="portrait none"><span class="ini-badge" aria-hidden="true">${esc(initials(p.name))}</span><figcaption>No free photo yet</figcaption></figure>`;
-  return `<figure class="portrait"><img src="${esc(ph.src)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('none');this.remove()"><span class="ini-badge" aria-hidden="true">${esc(initials(p.name))}</span><figcaption>Photo: <a href="${esc(ph.page)}" target="_blank" rel="noopener">${esc(ph.author || "Wikimedia Commons")}</a>, ${esc(ph.license || "see file page")}</figcaption></figure>`;
+  return `<figure class="portrait"><img src="${esc(ph.src)}" alt="${esc(p.name)}" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('none');this.remove()"><span class="ini-badge" aria-hidden="true">${esc(initials(p.name))}</span><figcaption>Photo: <a href="${esc(ph.page)}" target="_blank" rel="noopener">${esc(ph.author || "Wikimedia Commons")}</a>, ${esc(ph.license || "see file page")}</figcaption></figure>`;
 }
 
 let S = null; // the current draft and campaign (or friend game)
