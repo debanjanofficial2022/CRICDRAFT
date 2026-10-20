@@ -148,12 +148,26 @@ export function* inningsGen(r, batting, bowling, opts) {
   const pp = fmt === "t20" ? 6 : 10, mid = fmt === "t20" ? 11 : 30, death = fmt === "t20" ? 16 : 40;
   const phaseName = o => fmt === "test" ? null : o === 0 ? "Powerplay" : o === pp ? "Middle overs" : o === mid ? "Second half" : o === death ? "Death overs" : null;
   const fig = s => `${Math.floor(s.balls / 6)}${s.balls % 6 ? "." + (s.balls % 6) : ""}-${s.m}-${s.r}-${s.w}`;
+  // Nobody bowls two overs in a row, and nobody goes past his quota. If only the last over's bowler has overs
+  // left, someone else in the XI has to turn his arm over, as in a real match.
+  const partTimer = () => {
+    const lastP = last && (last.ref || last);
+    const cand = bowling.xi.filter(p => p !== lastP && !use.some(b => (b.ref || b) === p)).sort((a, b) => (b.bowl || 0) - (a.bowl || 0) || a.bat - b.bat)[0];
+    if (!cand) return null;
+    const b = { ...cand, bowl: Math.max(30, cand.bowl || 0), style: cand.style === "none" || !cand.bowl ? "pace" : cand.style, partTime: true, ref: cand };
+    use.push(b); bc.set(b, { p: cand, balls: 0, r: 0, w: 0, m: 0, spell: 0 });
+    return b;
+  };
+  const eligible = () => {
+    const l = use.filter(b => b !== last && bc.get(b).balls / 6 < maxPer);
+    if (l.length) return l;
+    const pt = partTimer();
+    return pt ? [pt] : use.filter(b => b !== last);
+  };
   const autoBowler = () => {
     const overNo = Math.floor(balls / 6);
     const left = (fmt === "test" ? 999 : opts.maxOvers) - overNo;
-    let options = use.filter(b => b !== last && bc.get(b).balls / 6 < maxPer);
-    if (!options.length) options = use.filter(b => bc.get(b).balls / 6 < maxPer);
-    if (!options.length) options = use;
+    const options = eligible();
     const score = b => {
       const s = bc.get(b); let v = b.bowl + r() * 14;
       if (fmt === "test") v -= Math.max(0, s.spell - 5) * 3 + (b.style === "spin" && balls < 120 ? 8 : 0) + (b.style === "pace" && balls < 90 ? -6 : 0);
@@ -199,8 +213,7 @@ export function* inningsGen(r, batting, bowling, opts) {
       let nb = null;
       const askNow = askBowl && !autoBowl && (fmt === "test" ? (testSession || !overBowler || bc.get(overBowler).spell >= 6) : (!!ph || overNo >= opts.maxOvers - (fmt === "t20" ? 4 : 5)));
       if (askNow) {
-        const avail = use.filter(b => b !== last && bc.get(b).balls / 6 < maxPer);
-        const list = avail.length ? avail : use.filter(b => bc.get(b).balls / 6 < maxPer);
+        const list = eligible();
         const sug = autoBowler();
         const c = yield dec(1 - opts.batSide, "bowler", `Over ${overNo + 1}: who bowls?`,
           [...list.map(b => { const s = bc.get(b); return opt(String(use.indexOf(b)), (b.ref || b).name, `${b.style === "spin" ? "Spin" : "Pace"} · bowl ${b.bowl} · ${fig(s)}${fmt !== "test" ? ` · ${maxPer - Math.ceil(s.balls / 6)} left` : ""}`); }), opt("auto", "Let the captain decide", "Stop asking this innings")],
