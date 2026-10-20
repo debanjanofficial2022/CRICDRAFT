@@ -334,6 +334,41 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .aw .fig { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.15; }
 .aw .fig b { font-family: var(--display); font-weight: 900; font-size: 1.6rem; }
 
+/* tournament */
+.drawh { font-size: clamp(2rem, 6vw, 3rem); }
+.drawgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.dg { background: var(--board); box-shadow: inset 0 0 0 2px var(--rail); padding: 12px 14px; min-width: 0; }
+.dg h3, .ptab h3 { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; font-size: 1.25rem; margin: 0 0 6px; }
+.teamlist { list-style: none; margin: 0; padding: 0; }
+.teamlist li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--rail); }
+.teamlist li.mine b, .rlist li.mine .rl-teams { color: var(--lamp); }
+.strtag { font-family: var(--mono); font-size: .68rem; color: var(--chalk-dim); white-space: nowrap; }
+.tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--rail); }
+.tab { appearance: none; border: 0; background: none; color: var(--chalk-dim); font: 800 1.05rem var(--display); text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.tab.on { color: var(--chalk); border-bottom-color: var(--lamp); }
+.tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.ptab { background: var(--board); box-shadow: inset 0 0 0 2px var(--rail); padding: 12px 14px; min-width: 0; overflow-x: auto; }
+.pt { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.pt th { font-family: var(--mono); font-weight: 400; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; color: var(--chalk-dim); text-align: right; padding: 4px 6px; }
+.pt th:nth-child(2), .pt td:nth-child(2) { text-align: left; }
+.pt td { text-align: right; padding: 6px; border-top: 1px solid var(--rail); }
+.pt td.tn { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt tr.q td:first-child { box-shadow: inset 3px 0 0 var(--lamp); }
+.pt tr.cutline td { border-bottom: 2px dashed var(--lamp); }
+.pt tr.me td { color: var(--lamp); font-weight: 700; }
+.elsewhere { background: var(--board-2); box-shadow: inset 0 0 0 2px var(--rail); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.rlist { list-style: none; margin: 0; padding: 0; }
+.rlist li { display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-top: 1px solid var(--rail); font-variant-numeric: tabular-nums; }
+.rlist li small { color: var(--chalk-dim); font-size: .8rem; }
+.rlist b.w { color: var(--chalk); text-decoration: underline; text-decoration-color: var(--lamp); text-underline-offset: 3px; }
+.rl-teams { color: var(--chalk-dim); }
+.rl-teams b { color: var(--chalk); font-weight: 600; }
+.feed li.sess { display: flex; flex-direction: column; gap: 3px; background: var(--board); box-shadow: inset 3px 0 0 var(--lamp); padding: 10px 12px; margin-top: 6px; }
+.sess-h { font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--lamp); }
+.sess-b, .sess-s { color: var(--chalk-dim); font-size: .85rem; }
+.feed li.sess .notes { padding-left: 0; }
+.autosess { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--chalk-dim); cursor: pointer; }
+
 /* celebrations */
 .cele { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 60; overflow: hidden; }
 .cele-in { position: relative; background: rgba(8,31,23,.94); border: 4px solid var(--lamp); padding: 18px 32px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 0 70px rgba(244,182,61,.45);

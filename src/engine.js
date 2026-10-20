@@ -75,7 +75,7 @@ export function strength(xi) {
 
 // How strongly skill differences decide a ball (fitted to real results in pipeline/calibrate.mjs), and
 // how much a player's form swings from match to match (rating points, standard deviation).
-export const TUNE = { skill: { t20: 0.6, ipl: 0.45, odi: 0.55, test: 0.7 }, form: { t20: 5, ipl: 6, odi: 6, test: 4 }, rain: { chance: 0.3, minOvers: 60, maxOvers: 220 } };
+export const TUNE = { skill: { t20: 0.6, ipl: 0.45, odi: 0.55, test: 0.6 }, form: { t20: 5, ipl: 6, odi: 6, test: 4 }, rain: { chance: 0.3, minOvers: 60, maxOvers: 220 } };
 
 // ---------- one ball ----------
 function ball(r, fmt, batter, bowler, ctx) {
@@ -140,7 +140,7 @@ export function* inningsGen(r, batting, bowling, opts) {
   const askBat = !!(opts.interactive && opts.humanBat), askBowl = !!(opts.interactive && opts.humanBowl);
   let userAggr = 0, field = FIELDS.balanced, autoBowl = !askBowl, wicketPrompt = false, lastDeclAsk = -99;
   // Captain's scenarios (only when a person is captaining, so computer-only matches use the same random stream as before).
-  let declAsks = 0, batReviews = fmt === "test" ? 2 : 1, bowlReviews = fmt === "test" ? 2 : 1, nightwatch = false;
+  let sessK = Math.floor((opts.day0Ball || 0) / 180), declAsks = 0, batReviews = fmt === "test" ? 2 : 1, bowlReviews = fmt === "test" ? 2 : 1, nightwatch = false;
   let fxBat = { balls: 0, a: 0 }, fxBowl = { balls: 0, w: 1, b: 1 };
   const gambleOver = (lo, hi) => Math.floor(lo + r() * Math.max(1, hi - lo));
   const batGamble = askBat && fmt !== "test" && r() < 0.8 ? gambleOver(fmt === "t20" ? 6 : 12, fmt === "t20" ? 15 : 38) : askBat && fmt === "test" && r() < 0.5 ? gambleOver(15, 70) : -1;
@@ -322,9 +322,14 @@ export function* inningsGen(r, batting, bowling, opts) {
       yield { type: "over", side: opts.batSide, inn: opts.inn, over: overNo, bowler: bowlerName, figures: fig(bs), runs: overRuns, wickets: overWk, balls: overBalls, score: state(),
         batters: [card[striker], card[non]].filter(c => c && c.in && !c.out).map(c => `${c.p.name} ${c.r} (${c.b})`) };
       overBalls = [];
+      if (fmt === "test" && Math.floor(((opts.day0Ball || 0) + balls) / 180) > sessK) {
+        const k = sessK = Math.floor(((opts.day0Ball || 0) + balls) / 180);
+        yield { type: "session", side: opts.batSide, inn: opts.inn, day: Math.ceil(k / 3), name: ["Stumps", "Lunch", "Tea"][k % 3], score: state(),
+          batters: [card[striker], card[non]].filter(c => c && c.in && !c.out).map(c => `${c.p.name} ${c.r}*`) };
+      }
       if (chased) break;
       if (!askBat && opts.declareAt && runs >= opts.declareAt) return finish(true);
-      if (!askBat && opts.declareOvers && balls >= opts.declareOvers * 6) return finish(true);
+      if (!askBat && opts.declareOvers && balls >= opts.declareOvers * 6 && (opts.leadBefore || 0) + runs >= (opts.inn >= 3 ? 150 : 0)) return finish(true);
     }
   }
   return finish(false);

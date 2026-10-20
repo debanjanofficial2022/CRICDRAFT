@@ -8,7 +8,7 @@ const store = {
 };
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const MIXKEYS = [["bat", "Batters", "Middle order, besides the two openers"], ["ar", "All-rounders", "Bat and bowl"], ["spin", "Spinners", "Finger and wrist spin"], ["pace", "Pace bowlers", "Fast and medium"]];
-const VIEWS = { ball: ["Ball by ball", "Every delivery, and you make the captain's calls"], over: ["Over by over", "One update an over, and you make the captain's calls"], result: ["Result only", "Straight to the scorecard"] };
+const VIEWS = { ball: ["Ball by ball", "Every delivery, and you make the captain's calls"], over: ["Over by over", "One update an over, and you make the captain's calls"], result: ["Result only", "Straight to the scorecard"], session: ["Session by session", "A card at every lunch, tea and stumps, and you make the captain's calls"] };
 const SPEEDS = [1, 2, 4];
 const PEER_SRC = "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
 const PEER_PREFIX = "cricdraft-room-";
@@ -139,11 +139,13 @@ function placePlayer(p, slotType) {
 function render() {
   const app = $("#app");
   if (!S || S.screen !== "draft") document.querySelectorAll(".flyer").forEach(e => e.remove());
+  if (!S || S.screen !== "match") document.querySelectorAll(".cele").forEach(e => e.remove());
   if (!S) app.innerHTML = homeView();
   else if (S.screen === "draft") app.innerHTML = draftView();
   else if (S.screen === "ready") app.innerHTML = readyView();
   else if (S.screen === "match") app.innerHTML = matchView();
   else if (S.screen === "h2h") app.innerHTML = h2hView();
+  else if (S.screen === "draw") app.innerHTML = drawView();
   else app.innerHTML = campaignView();
   wire();
 }
@@ -214,6 +216,7 @@ function homeView() {
         <li>Each roll gives you a real side and year, such as <b>West Indies 1984</b>, <b>India 2011</b> or <b>Chennai Super Kings 2010</b>, with every player's numbers from that season. Pick one and put him in an open slot. Each player also has a batting and bowling rating (35–99) for that season.</li>
         <li>You get two rerolls: keep the year and change the team, keep the team and change the year, or roll a completely new side.</li>
         <li>In the IPL you can field at most four overseas players, as in the real league.</li>
+        <li>Each tournament starts with a draw of real sides, one per nation or franchise. Every other match is played too, and you go through on the real points table: points, then wins, then net run rate.</li>
         <li>Watch each match ball by ball or over by over and make five or six captain's calls: the toss, how your batters start and finish, your field, and a couple of moments in the game, like a review, a gamble on a big over or a bouncer barrage. In T20s you also pick who bowls the last four overs, and in Tests when to declare. Or skip straight to the result.</li>
         <li>Ratings come from every Test and ODI scorecard since 1983 and ball-by-ball records of T20 internationals and the IPL, adjusted for era. Upsets happen about as often as they do in real cricket: the engine was checked against 8,099 real results.</li>
       </ul></details>
@@ -287,21 +290,28 @@ function readyView() {
   </section>`;
 }
 
-/* ---------------- campaign ---------------- */
+/* ---------------- tournament ---------------- */
+const TT = () => S.campaign.T;
 function tally() {
   const c = k => S.results.filter(r => r === k).length;
   return { W: c("W"), L: c("L"), D: c("D") };
 }
-const finished = () => !S.alive || S.idx >= S.campaign.fixtures.length;
+const finished = () => !!(S.campaign && TT().done);
+const teamName = id => TT().teams[id].name;
+function championText() {
+  const T = TT(), c = T.champion;
+  if (c == null) return "";
+  return Array.isArray(c) ? `${c.map(teamName).join(" and ")} share the title` : `${teamName(c)} ${c === 0 ? "are" : "won the title"}`;
+}
 function verdict() {
-  const f = FORMATS[S.fmt], { W, L, D } = tally();
-  const rec = `${W}–${L}${D ? "–" + D : ""}`;
-  const champion = S.alive && S.results.at(-1) === "W" && S.campaign.fixtures.at(-1).stage === "Final";
-  if (champion && !L && !D) return { title: "Unbeaten", rec: `${W}–0`, sub: `A perfect ${f.event}. That's rare.`, perfect: true };
-  if (champion) return { title: "Champions", rec, sub: `${W} won, ${L} lost${D ? `, ${D} drawn` : ""}. Not perfect, but the trophy is yours.` };
-  const last = S.campaign.fixtures[S.idx - 1].stage;
-  const title = last === "Final" ? "Runners-up" : /Qualifier|Eliminator|Semi/.test(last) ? "Knocked out" : S.fmt === "test" ? "Missed the final" : S.fmt === "ipl" ? "Missed the playoffs" : "Knocked out";
-  return { title, rec, sub: `${S.notes.at(-1) || ""} ${W} won, ${L} lost${D ? `, ${D} drawn` : ""}.`.trim() };
+  const f = FORMATS[S.fmt], T = TT(), { W, L, D } = tally();
+  const rec = `${W}–${L}${D ? "–" + D : ""}`, recTxt = `${W} won, ${L} lost${D ? `, ${D} drawn` : ""}`;
+  const joint = Array.isArray(T.champion) && T.champion.includes(0), champ = T.champion === 0 || joint;
+  if (champ && !joint && !L && !D) return { title: "Unbeaten", rec: `${W}–0`, sub: `A perfect ${f.event}. That's rare.`, perfect: true };
+  if (champ) return { title: joint ? "Joint champions" : "Champions", rec, sub: `${joint ? "The final was drawn, so the title is shared. " : ""}${recTxt}. Not perfect, but the trophy is yours.` };
+  const p = T.place || "";
+  const title = p === "Final" ? "Runners-up" : /Qualifier|Eliminator|Semi/.test(p) ? "Knocked out" : S.fmt === "test" ? "Missed the final" : S.fmt === "ipl" ? "Missed the playoffs" : p === "Group" ? "Out in the groups" : p === "Super 8" ? "Out in the Super 8" : "Missed the semi-finals";
+  return { title, rec, sub: `${T.note || ""} ${recTxt}. ${championText()}.`.replace(/\s+/g, " ").trim() };
 }
 const innScore = i => `${i.runs}${i.allOut ? "" : "/" + i.wk}${i.declared ? "d" : ""}`;
 function scoreLine(inn) { return `<b>${esc(inn.team)}</b> ${innScore(inn)} <span class="ov">(${overs(inn.balls)} ov)</span>`; }
@@ -319,51 +329,107 @@ function slimInn(i) {
 }
 const slimMatch = m => ({ winner: m.winner, text: m.text, inns: m.inns.map(i => (i.bat && i.bat[0] && i.bat[0].p ? slimInn(i) : i)) });
 function lamps() {
-  const fx = S.campaign.fixtures, f = FORMATS[S.fmt];
-  const pad = isIPL() && !finished() ? Math.max(0, f.perfect - fx.length) : 0;
-  return fx.map((x, i) => `<span class="lamp ${S.results[i] === "W" ? "on" : S.results[i] === "L" ? "red" : S.results[i] === "D" ? "dim" : ""}" title="${esc(x.stage)}"></span>`).join("") + '<span class="lamp ghost"></span>'.repeat(pad);
+  const T = TT(), fx = S.campaign.fixtures, f = FORMATS[S.fmt];
+  const upc = finished() ? 0 : T.upcoming.length;
+  const pad = finished() ? 0 : Math.max(0, f.perfect - fx.length - upc);
+  return fx.map((x, i) => `<span class="lamp ${S.results[i] === "W" ? "on" : S.results[i] === "L" ? "red" : S.results[i] === "D" ? "dim" : ""}" title="${esc(x.stage)}"></span>`).join("") + '<span class="lamp"></span>'.repeat(upc) + '<span class="lamp ghost"></span>'.repeat(pad);
 }
-function campaignView() {
-  const f = FORMATS[S.fmt], fx = S.campaign.fixtures;
-  const { W, L, D } = tally();
-  const over = finished(), v = over ? verdict() : null;
-  let lastStage = null;
-  const rows = fx.map((x, i) => {
-    const head = x.stage !== lastStage ? `<li class="stage">${esc(x.stage)}${S.fmt === "test" && x.series != null ? ` · v ${esc(x.opp.team)} ${x.away ? "(away)" : "(home)"}` : ""}</li>` : ""; lastStage = x.stage;
-    const res = S.results[i], m = S.matches[i];
-    const locked = i > S.idx || (!S.alive && i >= S.idx);
-    return head + `<li class="fx${res ? " r-" + res : ""}${i === S.idx && !over ? " next" : ""}${locked && !res ? " locked" : ""}">
-      ${i === S.idx && !over ? `<button class="res playnow" data-act="play" aria-label="Play this match: ${esc(VIEWS[S.view][0].toLowerCase())}">▶</button>` : `<span class="res">${res || ""}</span>`}
-      <span class="opp"><b>${esc(x.opp.name)}</b><small>${PITCHES[x.pitch].label}${S.fmt === "test" && x.test ? ` · ${["1st", "2nd"][x.test - 1]} Test` : ""} · str ${x.opp.str}</small></span>
+const fixLabel = fx => (fx.stage === "League" ? (S.fmt === "test" ? `${["1st", "2nd"][fx.test - 1]} Test${fx.away ? " (away)" : " (home)"}` : "League match") : fx.stage) + (fx.group && fx.stage !== "League" ? " · " + fx.group : "");
+const strTag = t => `<span class="strtag">str ${t.str}</span>`;
+function resultLine(m) {
+  const T = TT(), A = T.teams[m.a], B = T.teams[m.b];
+  const sc = id => m.inns.filter(i => i.team === T.teams[id].name).map(innScore).join(" & ") || "–";
+  return `<li${m.a === 0 || m.b === 0 ? ' class="mine"' : ""}><span class="rl-teams"><b${m.winner === m.a ? ' class="w"' : ""}>${esc(A.name)}</b> ${esc(sc(m.a))} · <b${m.winner === m.b ? ' class="w"' : ""}>${esc(B.name)}</b> ${esc(sc(m.b))}</span><small>${esc((m.group && m.stage !== "League" ? m.group + " · " : m.stage !== "League" && m.stage !== "Group" ? m.stage + " · " : "") + m.text.replace(SOLO, "You"))}</small></li>`;
+}
+function tableHTML(g) {
+  const T = TT(), test = S.fmt === "test";
+  const rows = standings(T, g.ids, m => m.stage === g.stage && (g.stage === "League" || m.group === g.name));
+  return `<div class="ptab"><h3>${esc(g.name)}</h3><table class="pt"><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">P</th><th scope="col">W</th><th scope="col">L</th>${test ? '<th scope="col">D</th>' : ""}<th scope="col">${test ? "Pts" : "Pts"}</th><th scope="col">${test ? "PCT" : "NRR"}</th></tr></thead><tbody>
+    ${rows.map((x, i) => `<tr class="${x.id === 0 ? "me" : ""}${i === g.qual - 1 ? " cutline" : ""}${i < g.qual ? " q" : ""}"><td>${i + 1}</td><td class="tn">${esc(teamName(x.id))}</td><td>${x.P}</td><td>${x.W}</td><td>${x.L}</td>${test ? `<td>${x.D}</td>` : ""}<td><b>${x.pts}</b></td><td>${test ? x.pct.toFixed(1) : fmtNRR(x.nrr)}</td></tr>`).join("")}
+    </tbody></table><p class="note">Top ${g.qual} ${g.stage === "Group" ? "reach the Super 8" : g.stage === "Super 8" ? "reach the semi-finals" : S.fmt === "test" ? "play the final" : S.fmt === "ipl" ? "reach the playoffs" : "reach the semi-finals"}.${test ? " Win 12 points, draw 4; ranked by percentage of points won." : " Win 2 points. Ties on points go to wins, then net run rate."}</p></div>`;
+}
+function teamsHTML() {
+  const T = TT();
+  const card = id => { const t = T.teams[id]; return `<li${id === 0 ? ' class="mine"' : ""}><b>${esc(t.name)}</b>${strTag(t)}</li>`; };
+  const first = T.groups.filter(g => g.stage === "Group" || g.stage === "League");
+  return `<div class="drawgrid">${first.map(g => `<div class="dg"><h3>${esc(g.stage === "Group" ? g.name : "The field")}</h3><ol class="teamlist">${[...g.ids].sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : T.teams[b].str - T.teams[a].str)).map(card).join("")}</ol></div>`).join("")}</div>`;
+}
+function formatHTML() {
+  return { t20: "Four groups of three: everyone plays the other two in their group, and the top two reach the Super 8. Two Super 8 groups of four: the top two reach the semi-finals, then the final.",
+    odi: "Ten teams play each other once. The top four reach the semi-finals (1st v 4th, 2nd v 3rd), then the final.",
+    test: "Nine teams. Each plays six two-Test series, three at home and three away. A win is worth 12 points and a draw 4; the top two by percentage of points won meet in the final on a neutral ground.",
+    ipl: "Ten franchises, fourteen league games each. The top four reach the playoffs: 1st v 2nd in Qualifier 1 (the winner goes to the final), 3rd v 4th in the Eliminator, then Qualifier 2 and the final." }[S.fmt];
+}
+function fxRow(x, i, over) {
+  const res = S.results[i], m = S.matches[i];
+  const isNext = i === S.idx && !over;
+  return `<li class="fx${res ? " r-" + res : ""}${isNext ? " next" : ""}">
+      ${isNext ? `<button class="res playnow" data-act="play" aria-label="Play this match: ${esc(VIEWS[viewFor()][0].toLowerCase())}">▶</button>` : `<span class="res">${res || ""}</span>`}
+      <span class="opp"><b>${esc(x.opp.name)}</b><small>${esc(x.group && x.stage !== "League" ? x.group + " · " : "")}${PITCHES[x.pitch].label}${S.fmt === "test" && x.test ? ` · ${["1st", "2nd"][x.test - 1]} Test${x.away ? " (away)" : " (home)"}` : ""} · str ${x.opp.str}</small></span>
       <span class="txt">${m ? esc(m.text.replace(SOLO, "You")) : ""}</span>
       ${m ? `<button class="linkbtn" data-act="card" data-i="${i}" aria-expanded="${S.open === i}">Scorecard</button>` : ""}
       ${m && S.open === i ? `<div class="sc">${m.inns.map(cardHTML).join("")}</div>` : ""}
     </li>`;
-  }).join("");
+}
+function upcomingRows() {
+  const T = TT(); if (finished()) return "";
+  let last = S.campaign.fixtures.at(-1) ? S.campaign.fixtures.at(-1).stage : null;
+  const rows = T.upcoming.map(m => { const opp = T.teams[m.a === 0 ? m.b : m.a]; const head = m.stage !== last ? `<li class="stage">${esc(m.stage)}${m.group && m.stage !== "League" ? " · " + esc(m.group) : ""}</li>` : ""; last = m.stage;
+    return head + `<li class="fx locked"><span class="res"></span><span class="opp"><b>${esc(opp.name)}</b><small>${PITCHES[m.pitch].label}${S.fmt === "test" && m.test ? ` · ${["1st", "2nd"][m.test - 1]} Test${m.away ? " (away)" : " (home)"}` : ""} · str ${opp.str}</small></span><span class="txt"></span></li>`; }).join("");
+  const later = { t20: ["Super 8", "Semi-final", "Final"], odi: ["Semi-final", "Final"], test: ["Final"], ipl: ["Playoffs"] }[S.fmt].filter(st => !S.campaign.fixtures.some(x => x.stage === st || (st === "Playoffs" && /Qualifier|Eliminator|Final/.test(x.stage))) && !T.upcoming.some(m => m.stage === st));
+  return rows + later.map(st => `<li class="stage">${esc(st)}</li><li class="fx locked"><span class="res"></span><span class="opp"><b>To be decided</b><small>If you get there</small></span><span class="txt"></span></li>`).join("");
+}
+const viewFor = () => (S.view === "session" && S.fmt !== "test" ? "over" : S.view);
+const viewsFor = fmt => Object.keys(VIEWS).filter(k => k !== "session" || fmt === "test");
+function drawView() {
+  const f = FORMATS[S.fmt], T = TT();
+  return `${topBar(`<button class="linkbtn" data-act="quit">← Menu</button>`, esc(f.event), `${T.teams.length}<small> teams</small>`)}
+  <section class="camp">
+    <div class="board wide"><span class="eyebrow">The draw${T.host && S.fmt !== "test" && S.fmt !== "ipl" ? ` · hosted by ${esc(T.host)}` : ""}</span><h2 class="drawh">${esc(f.event)}</h2><p>${esc(formatHTML())}</p></div>
+    ${teamsHTML()}
+    <h2>Your fixtures</h2>
+    <ol class="fixtures">${S.campaign.fixtures.map((x, i) => fxRow(x, i, false)).join("").replace(/<button class="res playnow"[^>]*>▶<\/button>/, '<span class="res">1</span>')}${upcomingRows()}</ol>
+    <button class="btn big-btn" data-act="begin">Start the ${esc(f.event)}</button>
+  </section>`;
+}
+function campaignView() {
+  const f = FORMATS[S.fmt], T = TT(), fx = S.campaign.fixtures;
+  const { W, L, D } = tally();
+  const over = finished(), v = over ? verdict() : null;
+  const tab = S.tab || "fix";
+  let lastStage = null;
+  const rows = fx.map((x, i) => { const head = x.stage !== lastStage ? `<li class="stage">${esc(x.stage)}${x.group && x.stage !== "League" ? " · " + esc(x.group) : ""}${S.fmt === "test" && x.series != null && x.stage === "League" ? ` · v ${esc(x.opp.team)} ${x.away ? "(away)" : "(home)"}` : ""}</li>` : ""; lastStage = x.stage; return head + fxRow(x, i, over); }).join("");
   const nx = fx[S.idx];
+  const els = S.elsewhere || [];
+  const vws = viewsFor(S.fmt);
   return `${topBar(`<button class="linkbtn" data-act="quit">← Menu</button>`, esc(f.event), `${W}<small>–${L}${D ? "–" + D : ""}</small>`)}
   <section class="camp">
     <div class="board wide">
       <div class="lights">${lamps()}</div>
       ${over ? `<div class="verdict"><div class="vtitle">${esc(v.title)}</div><div class="big">${esc(v.rec)}</div><p>${esc(v.sub)}</p></div>`
-      : `<div class="verdict"><div class="big">${W}<span>–</span>${L}${D ? `<span>–</span>${D}` : ""}</div><p>Next: <b>${esc(nx.stage)}</b> v ${esc(nx.opp.name)} · ${PITCHES[nx.pitch].label}</p></div>`}
+      : `<div class="verdict"><div class="big">${W}<span>–</span>${L}${D ? `<span>–</span>${D}` : ""}</div><p>Next: <b>${esc(fixLabel(nx))}</b> v ${esc(nx.opp.name)} · ${PITCHES[nx.pitch].label}</p>${T.note && !T.out ? `<p class="note">${esc(T.note)}</p>` : ""}</div>`}
       ${over ? `<div class="ctl"><button class="btn" data-act="share">Copy result</button><button class="btn ghost" data-act="again">Play again</button></div>
         <textarea id="share-text" class="share" rows="4" readonly aria-label="Result to share">${esc(shareText())}</textarea>`
       : `<div class="watch"><span class="eyebrow">How to watch</span>
-        <div class="segbtns big" role="group" aria-label="How to watch">${Object.entries(VIEWS).map(([k, [l, d]]) => `<button class="sb${k === S.view ? " on" : ""}" data-act="setview" data-v="${k}" aria-pressed="${k === S.view}" title="${esc(d)}">${l}</button>`).join("")}</div>
-        <p class="note">${esc(VIEWS[S.view][1])}.</p>
+        <div class="segbtns big" role="group" aria-label="How to watch">${vws.map(k => `<button class="sb${k === viewFor() ? " on" : ""}" data-act="setview" data-v="${k}" aria-pressed="${k === viewFor()}" title="${esc(VIEWS[k][1])}">${VIEWS[k][0]}</button>`).join("")}</div>
+        <p class="note">${esc(VIEWS[viewFor()][1])}.</p>
         <div class="ctl"><button class="btn" data-act="play">▶ Play match ${S.idx + 1}</button><button class="linkbtn" data-act="playall">Sim the rest</button></div></div>`}
     </div>
     ${over ? awardsHTML() : ""}
-    <ol class="fixtures">${rows}</ol>
+    ${els.length ? `<div class="elsewhere"><span class="eyebrow">${over && T.out ? "How the rest of the tournament went" : "Elsewhere since your last match"}</span><ul class="rlist">${els.slice(-12).reverse().map(resultLine).join("")}</ul>${els.length > 12 ? `<p class="note">and ${els.length - 12} more: see the table.</p>` : ""}</div>` : ""}
+    <div class="tabs" role="tablist" aria-label="Tournament">${[["fix", "Your matches"], ["table", "Table"], ["teams", "Teams"]].map(([k, l]) => `<button role="tab" class="tab${tab === k ? " on" : ""}" aria-selected="${tab === k}" data-act="tab" data-v="${k}">${l}</button>`).join("")}</div>
+    ${tab === "fix" ? `<ol class="fixtures">${rows}${upcomingRows()}</ol>`
+      : tab === "table" ? `<div class="tables">${[...T.groups].reverse().map(tableHTML).join("")}</div>${T.results.some(m => m.ko) ? `<div class="ptab"><h3>Knockouts</h3><ul class="rlist">${T.results.filter(m => m.ko).map(resultLine).join("")}</ul></div>` : ""}`
+      : `<p class="note">${esc(formatHTML())}</p>${teamsHTML()}`}
     <details class="how"><summary>Your XI</summary><ol class="slots compact">${S.slots.map(slotRow).join("")}</ol></details>
   </section>`;
 }
-// Tournament awards from every scorecard in the campaign (your XI and the opponents you met).
+// Tournament awards from every scorecard in the tournament, yours and everyone else's.
 function seriesStats() {
   const P = new Map();
   const get = (n, team) => { const k = team + "|" + n; if (!P.has(k)) P.set(k, { n, team, m: new Set(), r: 0, b: 0, outs: 0, inn: 0, hs: 0, hsNo: false, w: 0, rc: 0, bb: 0, best: [0, 0], f50: 0, h100: 0 }); return P.get(k); };
-  S.matches.forEach((m, mi) => {
+  const list = S.campaign && TT() ? TT().results : S.matches;
+  list.forEach((m, mi) => {
     if (!m) return;
     const teams = [...new Set(m.inns.map(i => i.team))];
     for (const inn of m.inns) {
@@ -375,7 +441,8 @@ function seriesStats() {
   const all = [...P.values()];
   const runs = [...all].sort((a, b) => b.r - a.r || a.b - b.b).slice(0, 3);
   const wkts = [...all].filter(p => p.w > 0).sort((a, b) => b.w - a.w || a.rc - b.rc).slice(0, 3);
-  const score = p => p.r + 22 * p.w + 15 * p.h100 + 5 * p.f50 + (p.team === SOLO ? 8 * p.m.size : 0);
+  const T = S.campaign && TT(), champs = T ? [].concat(T.champion ?? []).map(id => T.teams[id].name) : [];
+  const score = p => p.r + 22 * p.w + 15 * p.h100 + 5 * p.f50 + (champs.includes(p.team) ? 60 : 0);
   const pots = [...all].sort((a, b) => score(b) - score(a))[0];
   return { runs, wkts, pots };
 }
@@ -388,7 +455,7 @@ function awardsHTML() {
   const bavg = p => (p.w ? (p.rc / p.w).toFixed(1) : "–");
   const row = (p, i, txt) => `<li${p.team === SOLO ? ' class="mine"' : ""}><span class="rk">${i + 1}</span><span class="who"><b>${esc(p.n)}</b><small>${esc(teamLabel(p.team))}</small></span><span class="fig">${txt}</span></li>`;
   const pp = st.pots;
-  const potsLine = [pp.r ? `${pp.r} runs${pp.outs ? ` at ${avg(pp)}` : ""}` : "", pp.w ? `${pp.w} wickets${pp.w ? ` at ${bavg(pp)}` : ""}` : "", pp.h100 ? `${pp.h100} hundred${pp.h100 > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  const potsLine = [pp.r ? `${pp.r} runs${pp.outs ? ` at ${avg(pp)}` : ""}` : "", pp.w ? `${pp.w} wickets at ${bavg(pp)}` : "", pp.h100 ? `${pp.h100} hundred${pp.h100 > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
   return `<section class="awards" aria-label="Tournament awards"><h2>${ipl ? "Season awards" : "Tournament awards"}</h2>
     <div class="aw-grid">
       <div class="aw pots"><span class="eyebrow">Player of the ${ipl ? "season" : "series"}</span><div class="aw-name">${esc(pp.n)}</div><small>${esc(teamLabel(pp.team))} · ${pp.m.size} match${pp.m.size === 1 ? "" : "es"}</small><p>${esc(potsLine)}</p></div>
@@ -399,14 +466,25 @@ function awardsHTML() {
 function shareText() {
   const f = FORMATS[S.fmt], v = verdict();
   const sq = S.campaign.fixtures.map((x, i) => S.results[i] === "W" ? "🟩" : S.results[i] === "L" ? "🟥" : S.results[i] === "D" ? "⬜" : "⬛").join("");
-  return `CricDraft · ${f.event}\n${v.perfect ? `${v.rec} 🏆 Unbeaten` : `${v.title}, ${v.rec}`}\n${sq}${(() => { const st = seriesStats(); return st.pots ? `\nPlayer of the ${S.fmt === "ipl" ? "season" : "series"}: ${st.pots.n}${st.runs[0] ? ` · Most runs: ${st.runs[0].n} ${st.runs[0].r}` : ""}${st.wkts[0] ? ` · Most wickets: ${st.wkts[0].n} ${st.wkts[0].w}` : ""}` : ""; })()}\nXI: ${S.slots.map(x => x.p.name).join(", ")}\n${location.origin}${location.pathname}`;
+  const st = seriesStats();
+  return `CricDraft · ${f.event}\n${v.perfect ? `${v.rec} 🏆 Unbeaten` : `${v.title}, ${v.rec}`}\n${sq}${TT().champion !== 0 && championText() ? `\n${championText()}` : ""}${st.pots ? `\nPlayer of the ${S.fmt === "ipl" ? "season" : "series"}: ${st.pots.n}${st.runs[0] ? ` · Most runs: ${st.runs[0].n} ${st.runs[0].r}` : ""}${st.wkts[0] ? ` · Most wickets: ${st.wkts[0].n} ${st.wkts[0].w}` : ""}` : ""}\nXI: ${S.slots.map(x => x.p.name).join(", ")}\n${location.origin}${location.pathname}`;
+}
+function startTournament() {
+  const T = buildTournament(rng(hashSeed(S.seed + "|tournament|" + S.fmt)), DATA, S.fmt, xiOf(), SOLO);
+  S.campaign = { T, fixtures: [] };
+  const x = T.gen.next(); if (!x.done) S.campaign.fixtures.push(x.value);
+  S.elsewhere = []; S.tab = "fix";
 }
 function recordSolo(m) {
-  S.matches[S.idx] = slimMatch(m);
+  const T = TT(), slim = slimMatch(m);
+  S.matches[S.idx] = slim;
   S.results[S.idx] = m.winner === 0 ? "W" : m.winner === 1 ? "L" : "D";
-  const g = stageGate(rng(hashSeed(`${S.seed}|gate|${S.idx}`)), S.fmt, S.campaign, S.results, S.idx);
-  if (g.note) S.notes.push(g.note);
-  if (!g.through) S.alive = false;
+  const before = T.results.length, wasOut = T.out;
+  const x = T.gen.next({ winner: m.winner, text: m.text, inns: slim.inns });
+  S.elsewhere = T.results.slice(before + 1);
+  if (!x.done) S.campaign.fixtures.push(x.value);
+  if (T.out && !wasOut) S.notes.push(T.note);
+  S.alive = !T.out;
   S.idx++;
   if (finished()) {
     const best = store.get("best", {}), W = S.results.filter(x => x === "W").length;
@@ -421,7 +499,7 @@ function simNext() {
 function watchSolo(view) {
   const fx = S.campaign.fixtures[S.idx];
   const A = { name: SOLO, xi: xiOf() }, B = { name: fx.opp.name, xi: fx.opp.xi };
-  M = newMatch({ view, names: [A.name, B.name], me: 0, pitch: fx.pitch, fmt: S.fmt, title: `${fx.stage} v ${fx.opp.name}` });
+  M = newMatch({ view, names: [A.name, B.name], me: 0, pitch: fx.pitch, fmt: S.fmt, title: `${fixLabel(fx)} v ${fx.opp.name}` });
   M.gen = matchGen(rng(matchSeed()), S.fmt, A, B, { pitch: fx.pitch, plans: [PLANS[S.plan], PLANS.balanced], human: [true, false], interactive: true });
   M.onEnd = recordSolo;
   S.screen = "match"; render(); window.scrollTo(0, 0); pump();
@@ -460,7 +538,11 @@ function consume(ev) {
     if (ev.wicket) { delete M.crease[ev.batter]; if (ev.newBatter) M.crease[ev.newBatter] = "0 (0)"; }
     M.chips.push(ev.extra ? "wd" : ev.wicket ? "W" : String(ev.runs));
     if (!M.ff && (ev.milestone || ev.hattrick)) M.cel = ev.hattrick ? { kind: "hat", who: ev.bowler, team: M.names[1 - ev.side] } : { kind: ev.milestone >= 100 ? "ton" : "fifty", n: ev.milestone, who: ev.batter, team: M.names[ev.side], score: ev.batterScore };
+    if (!M.seg || M.seg.inn !== ev.inn) { if (M.seg && (M.seg.r || M.seg.w)) (M.segs = M.segs || []).push(M.seg); M.seg = { inn: ev.inn, side: ev.side, r: 0, w: 0 }; }
+    M.seg.r += ev.runs || 0; if (ev.wicket) M.seg.w++;
+    if (ev.wicket || ev.milestone || ev.hattrick) (M.snotes = M.snotes || []).push(ev.wicket ? `${esc(ev.batter)} ${esc(ev.wicket)} ${esc(ev.batterScore)}${ev.hattrick ? ` (<b class="ms">hat-trick for ${esc(ev.bowler)}</b>)` : ""}` : `<b class="ms">${esc(ev.batter)} ${ev.milestone}</b>`);
     if (M.view === "ball") feedAdd(ev.wicket ? "wkt" : ev.runs >= 4 ? "bdry" : "", `<span class="bn">${ev.over}.${ev.ball}</span> ${ballText(ev)}`);
+    else if (M.view === "session") { /* summarised at the next break */ }
     else if (ev.wicket || ev.milestone) M.notes.push(ev.wicket ? `<b class="out">OUT</b> ${esc(ev.batter)} ${esc(ev.batterScore)}` : `<b class="ms">${esc(ev.batter)} ${ev.milestone}</b>`);
     return;
   }
@@ -470,8 +552,17 @@ function consume(ev) {
     for (const s of ev.batters || []) { const m = /^(.*) (\d+ \(\d+\))$/.exec(s); if (m) M.crease[m[1]] = m[2]; }
     const sc = `${ev.score.runs}/${ev.score.wk}`;
     if (M.view === "ball") feedAdd("over", `End of over ${ev.over + 1}: <b>${sc}</b> · ${esc(ev.bowler)} ${esc(ev.figures)}`);
+    else if (M.view === "session") { /* summarised at the next break */ }
     else feedAdd(ev.wickets ? "wkt" : "", `<span class="bn">Ov ${ev.over + 1}</span> ${chipsHTML(ev.balls)} <b>${plural(ev.runs, "run")}</b>${ev.wickets ? `, ${plural(ev.wickets, "wicket")}` : ""} · ${sc} · ${esc(ev.bowler)} ${esc(ev.figures)}${M.notes.length ? `<span class="notes">${M.notes.join(" · ")}</span>` : ""}`);
     M.notes = []; M.lastChips = ev.balls.map(String); M.chips = [];
+    return;
+  }
+  if (ev.type === "session") {
+    const sc = `${ev.score.runs}/${ev.score.wk}`, bat = (ev.batters || []).join(", ");
+    M.sessName = `Day ${ev.day}, ${ev.name}`;
+    if (M.view === "session") feedAdd("sess", `<span class="sess-h">Day ${ev.day} · ${esc(ev.name)}</span><b>${esc(M.names[ev.side])} ${sc}</b>${bat ? ` <span class="sess-b">(${esc(bat)})</span>` : ""}<span class="sess-s">This session: ${[...(M.segs || []), ...(M.seg ? [M.seg] : [])].map(g => `${esc(M.names[g.side])} ${plural(g.r, "run")}, ${plural(g.w, "wicket")}`).join(" · ")}</span>${(M.snotes || []).length ? `<span class="notes">${M.snotes.join(" · ")}</span>` : ""}`);
+    else feedAdd("over", `<b>${esc(ev.name)}, day ${ev.day}</b>: ${esc(M.names[ev.side])} ${sc}`);
+    M.segs = []; if (M.seg) M.seg = { ...M.seg, r: 0, w: 0 }; M.snotes = [];
     return;
   }
   if (ev.type === "innings") {
@@ -492,7 +583,7 @@ function celebrate(c) {
 }
 function delayFor(ev) {
   if (M.ff) return 0;
-  const t = M.view === "ball" ? { ball: 850, over: 450, innings: 2200, toss: 1500, rain: 1500 } : { ball: 0, over: 1000, innings: 2200, toss: 1500, rain: 1500 };
+  const t = M.view === "ball" ? { ball: 850, over: 450, innings: 2200, toss: 1500, rain: 1500, session: 1500 } : M.view === "session" ? { innings: 1800, toss: 1200, rain: 1200, session: 2600 } : { ball: 0, over: 1000, innings: 2200, toss: 1500, rain: 1500, session: 800 };
   return (t[ev.type] || 0) / M.speed;
 }
 const humanSide = s => (R ? true : s === 0);
@@ -514,6 +605,7 @@ function pump() {
     consume(ev);
     if (R && R.host) send({ t: "ev", ev });
     if (M.cel) { celebrate(M.cel); M.cel = null; delay = 2400; break; }
+    if (ev.type === "session" && M.view === "session" && !M.ff && !M.autoSess) { M.paused = true; M.atBreak = true; delay = 0; updateMatch(); return; }
     if (ev.type === "innings" && M.ff === "innings") { M.ff = null; delay = 1200; break; }
     delay = delayFor(ev);
     if (delay > 0) break;
@@ -577,11 +669,12 @@ function decHTML() {
 }
 function ctlHTML() {
   if (M.done) return "";
-  const views = `<div class="segbtns" role="group" aria-label="Updates">${["ball", "over"].map(v => `<button class="sb${M.view === v ? " on" : ""}" data-act="mview" data-v="${v}" aria-pressed="${M.view === v}">${VIEWS[v][0]}</button>`).join("")}</div>`;
+  const next = M.view === "session" && !M.remote ? `<button class="btn sm" data-act="nextsess">${M.paused ? (M.atBreak ? "▶ Next session" : "▶ Resume") : "Pause"}</button><label class="autosess"><input type="checkbox" data-act="autosess" ${M.autoSess ? "checked" : ""}> Keep playing</label>` : "";
+  const views = next + `<div class="segbtns" role="group" aria-label="Updates">${["ball", "over", ...(M.fmt === "test" ? ["session"] : [])].map(v => `<button class="sb${M.view === v ? " on" : ""}" data-act="mview" data-v="${v}" aria-pressed="${M.view === v}">${VIEWS[v][0]}</button>`).join("")}</div>`;
   if (M.remote) return `${views}<span class="note">${esc(M.names[0])} controls the pace.</span>`;
   const blocked = !!M.waiting;
   return `${views}<div class="segbtns" role="group" aria-label="Speed">${SPEEDS.map(s => `<button class="sb${M.speed === s ? " on" : ""}" data-act="speed" data-v="${s}" aria-pressed="${M.speed === s}">${s}×</button>`).join("")}</div>
-    <button class="btn sm ghost" data-act="pause">${M.paused ? "Resume" : "Pause"}</button>
+    ${M.view === "session" ? "" : `<button class="btn sm ghost" data-act="pause">${M.paused ? "Resume" : "Pause"}</button>`}
     <button class="btn sm ghost" data-act="ffinn" ${blocked ? "disabled" : ""}>Skip innings</button>
     <button class="btn sm ghost" data-act="ffall" ${blocked ? "disabled" : ""}>Skip to result</button>`;
 }
@@ -722,7 +815,7 @@ function onMsg(m) {
     case "go":
       if (R.host || !R.oppXI || !S) return;
       R.game = +m.game || R.game + 1;
-      M = newMatch({ view: m.view === "ball" ? "ball" : "over", names: [R.oppName, R.name], me: 1, pitch: PITCHES[m.pitch] ? m.pitch : "balanced", fmt: R.fmt, title: `Game ${R.game} · ${R.oppName} v ${R.name}` });
+      M = newMatch({ view: m.view === "ball" || m.view === "session" ? m.view : "over", names: [R.oppName, R.name], me: 1, pitch: PITCHES[m.pitch] ? m.pitch : "balanced", fmt: R.fmt, title: `Game ${R.game} · ${R.oppName} v ${R.name}` });
       M.remote = true;
       S.screen = "match"; render(); window.scrollTo(0, 0);
       return;
@@ -766,7 +859,7 @@ function h2hView() {
     <div class="board wide">
       ${R.lost ? `<p class="warn bad">${esc(R.oppName)} has left the room.</p><div class="ctl"><button class="btn" data-act="leave">Back to the menu</button></div>`
       : !both ? `<p>Waiting for ${esc(R.oppName)} to finish their XI.</p>`
-      : R.host ? `<span class="eyebrow">Start the match</span><div class="ctl">${Object.entries(VIEWS).map(([k, [l, d]]) => `<button class="btn${k === "over" ? "" : " ghost"}" data-act="h2hgo" data-v="${k}" title="${esc(d)}">${l}</button>`).join("")}</div><p class="note">You both make your own captain's calls as the match goes on. You control the pace.</p>`
+      : R.host ? `<span class="eyebrow">Start the match</span><div class="ctl">${viewsFor(R.fmt).map(k => `<button class="btn${k === "over" ? "" : " ghost"}" data-act="h2hgo" data-v="${k}" title="${esc(VIEWS[k][1])}">${VIEWS[k][0]}</button>`).join("")}</div><p class="note">You both make your own captain's calls as the match goes on. You control the pace.</p>`
       : `<p>Waiting for ${esc(R.oppName)} to start the match. You'll make your own captain's calls.</p>`}
     </div>
   </section>`;
@@ -822,13 +915,15 @@ document.addEventListener("click", e => {
   }
   if (a === "ready") { S.screen = "ready"; render(); return window.scrollTo(0, 0); }
   if (a === "back-draft") { S.screen = "draft"; return render(); }
-  if (a === "go") { S.campaign = buildCampaign(rng(hashSeed(S.seed + "|campaign")), DATA, S.fmt); S.screen = "camp"; render(); return window.scrollTo(0, 0); }
+  if (a === "go") { startTournament(); S.screen = "draw"; render(); return window.scrollTo(0, 0); }
+  if (a === "begin") { S.screen = "camp"; render(); return window.scrollTo(0, 0); }
+  if (a === "tab") { S.tab = b.dataset.v; return render(); }
   if (a === "lock") { R.locked = true; send({ t: "xi", xi: serialXI(), plan: S.plan }); S.screen = "h2h"; render(); return window.scrollTo(0, 0); }
-  if (a === "setview") { S.view = VIEWS[b.dataset.v] ? b.dataset.v : "over"; store.set("campview", S.view); return render(); }
+  if (a === "setview") { S.view = VIEWS[b.dataset.v] ? b.dataset.v : "over"; if (S.view !== "session") store.set("campview", S.view); return render(); }
   if (a === "play") {
     if (finished()) return;
     if (S.view === "result") { simNext(); S.open = S.idx - 1; return render(); }
-    return watchSolo(S.view);
+    return watchSolo(viewFor());
   }
   if (a === "playall") { while (!finished()) simNext(); S.open = null; return render(); }
   if (a === "card") { const i = +b.dataset.i; S.open = S.open === i ? null : i; return render(); }
@@ -842,7 +937,9 @@ document.addEventListener("click", e => {
   // match viewer
   if (a === "ans") return answer(b.dataset.v);
   if (a === "autoall") { if (!M || !M.pending) return; const d = M.pending; if (M.remote) { send({ t: "autoall" }); } else M.auto[M.me] = true; return answer(d.def); }
-  if (a === "mview") { M.view = b.dataset.v; store.set("view", M.view); if (S) S.view = M.view; return updateMatch(); }
+  if (a === "mview") { M.view = b.dataset.v; if (M.view !== "session") store.set("view", M.view); if (S) S.view = M.view; if (M.view !== "session" && M.atBreak) { M.atBreak = false; M.paused = false; pump(); } return updateMatch(); }
+  if (a === "nextsess") { M.paused = !M.paused; M.atBreak = false; updateMatch(); return pump(); }
+  if (a === "autosess") { M.autoSess = b.checked; if (M.autoSess && M.atBreak) { M.atBreak = false; M.paused = false; pump(); } return updateMatch(); }
   if (a === "speed") { M.speed = +b.dataset.v; store.set("speed", M.speed); updateMatch(); return pump(); }
   if (a === "pause") { M.paused = !M.paused; updateMatch(); return pump(); }
   if (a === "ffinn" || a === "ffall") {

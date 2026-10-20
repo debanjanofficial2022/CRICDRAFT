@@ -2,12 +2,14 @@
 
 A cricket draft game in the spirit of 7a0. Roll a real side from 1983 to today (for example *West Indies 1984*, *India 2011* or *Chennai Super Kings 2010*), see its whole squad with each player's numbers from that season, take one player, and repeat until you have an XI. Then try to go unbeaten.
 
-| Format | Campaign | Perfect run |
+| Format | Tournament | Perfect run |
 |---|---|---|
-| T20 | T20 World Cup: group, Super 8, semi-final, final (sides from 2007) | 9–0 |
-| ODI | ODI World Cup: nine league games, semi-final, final (sides from 1983) | 11–0 |
-| Test | World Test Championship: six two-Test series, then the final (sides from 1983) | 13–0 |
-| IPL | Full season: fourteen league games and the playoffs, at most four overseas players (seasons from 2008) | 16–0 |
+| T20 | T20 World Cup: 12 teams, four groups of three, a Super 8 of two groups of four, semi-finals, final (sides from 2005) | 7–0 |
+| ODI | ODI World Cup: 10 teams play each other once, top four to the semi-finals, final (sides from 1983) | 11–0 |
+| Test | World Test Championship: 9 teams, six two-Test series each (12 points a win, 4 a draw, ranked by percentage), top two to the final (sides from 1983) | 13–0 |
+| IPL | 10 franchises, 14 league games each, then Qualifier 1, Eliminator, Qualifier 2 and the final; at most four overseas players (seasons from 2008) | 16–0 |
+
+Every tournament starts with a draw: each nation (or franchise) appears once, in one of its stronger years. Every match between the other teams is simulated too, and progress is decided by real points tables (points, then wins, then net run rate; Tests by percentage of points). Tests can also be watched session by session.
 
 Two openers and a wicketkeeper are fixed; before the draft you choose how the other eight split between batters, all-rounders, spinners and pace bowlers. Then pick a game plan. Every match is simulated ball by ball on pitches that suit pace or spin. Watch it ball by ball or over by over and make five or six captain's calls per match (toss, how to start and finish an innings, the field, and a couple of in-game dilemmas such as reviews, a gamble on a big over, a bouncer barrage or a nightwatchman; plus who bowls the last four overs in T20s and declarations in Tests), or go straight to the result. Fifties, hundreds and hat-tricks get a celebration. You get two rerolls per draft: same year new team, same team new year, or a completely new side.
 
