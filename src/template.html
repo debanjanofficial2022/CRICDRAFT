@@ -252,6 +252,13 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
 .put { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px 12px; background: var(--board); box-shadow: inset 3px 0 0 var(--lamp); }
 .put > span { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); }
 .rolled > .grp + .grp { margin-top: 8px; }
+.order .slot { grid-template-columns: 30px 22px minmax(0, 1fr) auto auto auto; }
+.grip { appearance: none; border: 0; background: none; color: var(--chalk-dim); font-size: 1.3rem; line-height: 1; cursor: grab; touch-action: none; padding: 6px 4px; border-radius: 3px; }
+.grip:hover { color: var(--lamp); }
+.order .slot.dragging { background: rgba(244,182,61,.16); box-shadow: inset 3px 0 0 var(--lamp); }
+.order .slot.dragging .grip { cursor: grabbing; color: var(--lamp); }
+.mvbtns { display: inline-flex; gap: 4px; }
+.mvbtns .sbtn { width: 28px; height: 28px; font-size: .7rem; }
 .ready-xi .field { align-self: start; position: sticky; top: 16px; }
 .ready-xi { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 18px; align-items: start; }
 
@@ -410,6 +417,12 @@ legend { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text
   .fx .txt { grid-column: 2 / -1; grid-row: 2; }
   .big-btn, .startrow .big-btn { align-self: stretch; flex: 1 1 100%; }
   .xi .slots { display: none; }
+  .ready-xi .field { position: static; max-width: 200px; }
+  .order .who b { white-space: normal; overflow-wrap: anywhere; }
+  .order .slot { grid-template-columns: 26px 16px minmax(0, 1fr) auto auto 30px; gap: 5px; }
+  .order .rt { min-width: 30px; font-size: 1.15rem; }
+  .order .mvbtns { flex-direction: column; gap: 3px; }
+  .order .mvbtns .sbtn { width: 30px; height: 26px; }
   .field { max-width: 210px; }
   .phead { display: none; }
   .pl-main { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; }

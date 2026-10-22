@@ -130,7 +130,7 @@ function bowlHint() {
 function placePlayer(p, slotType) {
   const i = S.slots.findIndex(x => !x.p && x.s === slotType);
   if (i < 0 || !fitsFor(p).includes(slotType)) return -1;
-  S.slots[i].p = effective(p, slotType); S.used.push(p.ident); S.key = null; S.sel = null;
+  S.slots[i].p = effective(p, slotType); S.slots[i].base = p; S.used.push(p.ident); S.key = null; S.sel = null;
   if (R) send({ t: "progress", n: filled() });
   return i;
 }
@@ -276,6 +276,42 @@ function draftView() {
   </div>`;
 }
 
+// Batting order: whoever bats 1 or 2 is an opener for the engine; a non-opener there loses a little.
+function applyOrder() {
+  S.slots.forEach((x, i) => { const b = x.base || x.p; if (!x.base) x.base = b; x.p = i < 2 && !b.opener ? { ...b, bat: Math.max(35, b.bat - 4) } : b; });
+}
+function orderRow(x, i) {
+  const p = x.p, n = S.slots.length;
+  return `<li class="slot ord" data-i="${i}"><button type="button" class="grip" data-grip aria-label="Drag ${esc(p.name)} to a new batting position">⠿</button><span class="no">${i + 1}</span><span class="who" title="${esc(p.full)}"><b>${esc(p.name)}${p.overseas && S.fmt === "ipl" ? ' <i class="os">OS</i>' : ""}</b><small>${esc(ROLE_TAG[groupOf(x.base || p)])} · ${esc(p.team)} ${p.year}${i < 2 && !(x.base || p).opener ? " · not a regular opener" : ""}</small></span><span class="rt"><i>BAT</i>${Math.round(p.bat)}</span><span class="rt"><i>BOWL</i>${p.bowl ? Math.round(p.bowl) : "–"}</span><span class="mvbtns"><button type="button" class="sbtn" data-act="ord" data-i="${i}" data-d="-1" aria-label="Move ${esc(p.name)} up" ${i === 0 ? "disabled" : ""}>▲</button><button type="button" class="sbtn" data-act="ord" data-i="${i}" data-d="1" aria-label="Move ${esc(p.name)} down" ${i === n - 1 ? "disabled" : ""}>▼</button></span></li>`;
+}
+function wireOrder() {
+  const list = $("#order"); if (!list) return;
+  list.addEventListener("pointerdown", e => {
+    const g = e.target.closest("[data-grip]"); if (!g) return;
+    e.preventDefault();
+    const row = g.closest("li"); row.classList.add("dragging");
+    const move = ev => {
+      const y = ev.clientY; let before = null;
+      for (const c of list.children) { if (c === row) continue; const r = c.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = c; break; } }
+      if (before !== row.nextSibling) list.insertBefore(row, before);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+      const order = [...list.children].map(c => +c.dataset.i);
+      S.slots = order.map(i => S.slots[i]); applyOrder(); render();
+      const moved = $(`#order [data-i="${order.indexOf(+row.dataset.i)}"] .grip`); if (moved) moved.focus({ preventScroll: true });
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+  });
+  list.addEventListener("keydown", e => {
+    const g = e.target.closest("[data-grip]"); if (!g || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const i = +g.closest("li").dataset.i, j = i + (e.key === "ArrowUp" ? -1 : 1);
+    if (j < 0 || j >= S.slots.length) return;
+    [S.slots[i], S.slots[j]] = [S.slots[j], S.slots[i]]; applyOrder(); render();
+    const f = $(`#order [data-i="${j}"] .grip`); if (f) f.focus();
+  });
+}
 function readyView() {
   const xi = xiOf();
   return `${topBar(`<button class="linkbtn" data-act="back-draft">← Back</button>`, esc(FORMATS[S.fmt].event), `${strength(xi)}<small> str</small>`)}
@@ -285,7 +321,8 @@ function readyView() {
     <fieldset class="seg" aria-label="Game plan">
       ${[["attack", "Attacking", "More boundaries, more wickets lost."], ["balanced", "Balanced", "Play the situation."], ["defend", "Defensive", S.fmt === "test" ? "Bat time. Harder to lose, harder to win." : "Protect wickets, fewer boundaries."]].map(([k, l, d]) => `<label class="opt${S.plan === k ? " sel" : ""}"><input type="radio" name="plan" value="${k}" ${S.plan === k ? "checked" : ""}><b>${l}</b><span>${d}</span></label>`).join("")}
     </fieldset>
-    <h2>Batting order</h2><p class="note">Openers, batters, keeper, all-rounders, then bowlers.</p><div class="ready-xi">${fieldSVG(S.slots)}<ol class="slots compact">${S.slots.map(slotRow).join("")}</ol></div>
+    <h2>Batting order</h2><p class="note">Drag a name up or down to set who bats where. Players who don't usually open lose a few batting points at 1 and 2.</p>
+    <div class="ready-xi">${fieldSVG(S.slots)}<ol class="slots compact order" id="order">${S.slots.map(orderRow).join("")}</ol></div>
     ${R ? `<button class="btn big-btn" data-act="lock">Lock in my XI</button>` : `<button class="btn big-btn" data-act="go">Start the ${FORMATS[S.fmt].event}</button>`}
   </section>`;
 }
@@ -774,7 +811,7 @@ function attach(conn) {
   });
 }
 function refreshStrip() { const el = $("#roomstrip"); if (el) el.outerHTML = roomStrip(); }
-function serialXI() { return S.slots.map(x => ({ k: `${x.p.team} ${x.p.year}`, id: x.p.ident, s: x.s })); }
+function serialXI() { return S.slots.map((x, i) => ({ k: `${x.p.team} ${x.p.year}`, id: x.p.ident, s: i < 2 ? "OP" : x.s === "OP" ? "BAT" : x.s })); }
 function buildXI(list) {
   if (!Array.isArray(list) || list.length !== 11) return null;
   const xi = [];
@@ -881,6 +918,7 @@ function hostStart(view) {
 
 /* ---------------- events ---------------- */
 function wire() {
+  if (S && S.screen === "ready") wireOrder();
   document.querySelectorAll('input[name="fmt"]').forEach(i => (i.onchange = () => { home.fmt = i.value; store.set("fmt", i.value); render(); }));
   document.querySelectorAll('input[name="plan"]').forEach(i => (i.onchange = () => { S.plan = i.value; render(); }));
   const pn = $("#pname"); if (pn) pn.oninput = () => { home.name = pn.value; store.set("name", pn.value); };
@@ -913,7 +951,8 @@ document.addEventListener("click", e => {
     if (!reduced) fly(from, i, p); else S.justPicked = null;
     return;
   }
-  if (a === "ready") { S.screen = "ready"; render(); return window.scrollTo(0, 0); }
+  if (a === "ord") { const i = +b.dataset.i, j = i + +b.dataset.d; if (j >= 0 && j < S.slots.length) { [S.slots[i], S.slots[j]] = [S.slots[j], S.slots[i]]; applyOrder(); render(); const f = $(`#order [data-i="${j}"] [data-d="${b.dataset.d}"]`) || $(`#order [data-i="${j}"] .grip`); if (f && !f.disabled) f.focus(); } return; }
+  if (a === "ready") { applyOrder(); S.screen = "ready"; render(); return window.scrollTo(0, 0); }
   if (a === "back-draft") { S.screen = "draft"; return render(); }
   if (a === "go") { startTournament(); S.screen = "draw"; render(); return window.scrollTo(0, 0); }
   if (a === "begin") { S.screen = "camp"; render(); return window.scrollTo(0, 0); }
