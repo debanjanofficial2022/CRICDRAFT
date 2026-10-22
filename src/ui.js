@@ -37,7 +37,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 /* ---------------- players ---------------- */
 function groupOf(p) {
   if (p.keeper) return "wk";
-  if (p.bowl > 0 && p.role === "A") return "ar";
+  if (arType(p)) return "ar";
   if (p.bowl > 0 && (p.role === "W" || (p.role !== "B" && p.role !== "O" && p.role !== "K" && p.bowl >= p.bat))) return p.style === "spin" ? "spin" : "pace";
   return "bat";
 }
@@ -241,7 +241,7 @@ function playerRow(p) {
   const why = used ? "In your XI" : !fits.length ? (isIPL() && p.overseas && overseasCount() >= MAX_OVERSEAS ? "Overseas limit reached" : "No open slot fits") : "";
   return `<li class="pl${used ? " used" : !fits.length ? " nofit" : ""}${sel ? " sel" : ""}">
     <button class="pl-main" data-act="sel" data-id="${esc(p.ident)}" ${why ? "disabled" : ""} aria-expanded="${sel}">
-      <span class="nm"><b>${esc(p.name)}${isIPL() && p.overseas ? ' <i class="os">OS</i>' : ""}</b><small>${esc(roleLine(p))}${why ? ` · <em>${why}</em>` : ""}</small></span>${statCells(p)}
+      <span class="nm"><b>${esc(p.name)}${isIPL() && p.overseas ? ' <i class="os">OS</i>' : ""}${arType(p) ? ` <i class="art ${arType(p).startsWith("True") ? "true" : arType(p).startsWith("Batting") ? "bat" : "bowl"}">${esc(arType(p))}</i>` : ""}</b><small>${esc(roleLine(p))}${why ? ` · <em>${why}</em>` : ""}</small></span>${statCells(p)}
     </button>
     ${sel ? `<div class="put"><span>Put him in as</span>${fits.map(s => `<button class="btn sm" data-act="pick" data-id="${esc(p.ident)}" data-slot="${s}">${SLOT[s].label}</button>`).join("")}<button class="linkbtn" data-act="sel" data-id="">Cancel</button></div>` : ""}
   </li>`;

@@ -13,7 +13,7 @@ export const SLOT = {
   OP: { label: "Opener", short: "OPEN", ok: p => true },
   BAT: { label: "Batter", short: "BAT", ok: p => true },
   WK: { label: "Wicketkeeper", short: "WK", ok: p => p.keeper },
-  AR: { label: "All-rounder", short: "AR", ok: p => p.bowl > 0 && p.bat >= 50 },
+  AR: { label: "All-rounder", short: "AR", ok: p => p.bowl > 0 && (p.role === "A" || p.bat >= 50 || (p.bat >= 60 && p.bowl >= 60)) },
   SPIN: { label: "Spinner", short: "SPIN", ok: p => p.bowl > 0 && p.style === "spin" },
   PACE: { label: "Pace bowler", short: "PACE", ok: p => p.bowl > 0 && p.style === "pace" },
   ANY: { label: "Add to XI", short: "ANY", ok: p => true },
@@ -37,6 +37,13 @@ export function mixProblem(mix, fmt) {
 }
 export const mixWarning = (mix, fmt) => { const n = mix.ar + mix.spin + mix.pace; return n < 5 ? (n === 0 ? "Nobody in this XI bowls: the batters will have to share every over." : `Only ${n} bowler${n === 1 ? "" : "s"}: part-timers will have to bowl the rest of the overs.`) : null; };
 
+// All-rounder types: 60+ in both is a true all-rounder; otherwise whichever skill is stronger.
+export function arType(p) {
+  if (!(p.bowl > 0)) return null;
+  if (p.bat >= 60 && p.bowl >= 60) return "True all-rounder";
+  if (p.role === "A") return p.bat > p.bowl ? "Batting all-rounder" : "Bowling all-rounder";
+  return null;
+}
 // A batter used out of position at the top loses a little.
 export const effective = (p, slot) => (slot === "OP" && !p.opener ? { ...p, bat: Math.max(35, p.bat - 4) } : p);
 
