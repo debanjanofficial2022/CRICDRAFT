@@ -17,6 +17,8 @@ export const SLOT = {
   SPIN: { label: "Spinner", short: "SPIN", ok: p => p.bowl > 0 && p.style === "spin" },
   PACE: { label: "Pace bowler", short: "PACE", ok: p => p.bowl > 0 && p.style === "pace" },
   ANY: { label: "Add to XI", short: "ANY", ok: p => true },
+  // Rare: a keeper who opens can take an opener's place and keep wicket, freeing the keeper's slot for another batter.
+  KO: { label: "Opener + keeper", short: "OP/WK", ok: p => p.keeper && p.opener },
 };
 // Two openers and a keeper are fixed; the other eight places are the player's choice.
 export const FLEX = 8;

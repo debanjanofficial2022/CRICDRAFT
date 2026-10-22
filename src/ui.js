@@ -71,12 +71,14 @@ function sqCache() {
 function fitsFor(p) {
   if (S.used.includes(p.ident)) return [];
   if (isIPL() && p.overseas && overseasCount() >= MAX_OVERSEAS) return [];
-  return [...new Set(S.slots.filter(x => !x.p).map(x => x.s).filter(s => SLOT[s].ok(p)))];
+  const f = [...new Set(S.slots.filter(x => !x.p).map(x => x.s).filter(s => s !== "KO" && SLOT[s].ok(p)))];
+  if (SLOT.KO.ok(p) && S.slots.some(x => !x.p && x.s === "OP") && S.slots.some(x => !x.p && x.s === "WK")) f.push("KO");
+  return f;
 }
 
 /* ---------------- the field ---------------- */
 const FIELD = [[100, 140], [100, 56], [116, 147], [137, 134], [160, 106], [150, 66], [124, 36], [76, 36], [48, 68], [40, 106], [64, 168]];
-function spotsFor(slots) { let k = 1; return slots.map(x => (x.s === "WK" ? FIELD[0] : FIELD[Math.min(k++, 10)])); }
+function spotsFor(slots) { let k = 1; return slots.map(x => (x.s === "WK" || x.s === "KO" ? FIELD[0] : FIELD[Math.min(k++, 10)])); }
 function fieldSVG(slots) {
   const sp = spotsFor(slots), n = slots.filter(x => x.p).length;
   return `<svg class="field" viewBox="0 0 200 200" role="img" aria-label="The field: ${n} of 11 places filled">
@@ -128,6 +130,14 @@ function bowlHint() {
   return `<p class="${left < need - n ? "warn" : "note"}">Bowlers in your XI: <b>${n}</b>. Most sides pick five${left < need - n ? `; with ${left} place${left === 1 ? "" : "s"} left, part-timers will have to bowl` : ""}.</p>`;
 }
 function placePlayer(p, slotType) {
+  if (slotType === "KO") {
+    if (!fitsFor(p).includes("KO")) return -1;
+    const i = S.slots.findIndex(x => !x.p && x.s === "OP"), w = S.slots.findIndex(x => !x.p && x.s === "WK");
+    S.slots[i].s = "KO"; S.slots[w].s = "BAT"; // the keeper's place goes to an extra batter
+    S.slots[i].p = p; S.slots[i].base = p; S.used.push(p.ident); S.key = null; S.sel = null;
+    if (R) send({ t: "progress", n: filled() });
+    return i;
+  }
   const i = S.slots.findIndex(x => !x.p && x.s === slotType);
   if (i < 0 || !fitsFor(p).includes(slotType)) return -1;
   S.slots[i].p = effective(p, slotType); S.slots[i].base = p; S.used.push(p.ident); S.key = null; S.sel = null;
@@ -243,7 +253,7 @@ function playerRow(p) {
     <button class="pl-main" data-act="sel" data-id="${esc(p.ident)}" ${why ? "disabled" : ""} aria-expanded="${sel}">
       <span class="nm"><b>${esc(p.name)}${isIPL() && p.overseas ? ' <i class="os">OS</i>' : ""}${arType(p) ? ` <i class="art ${arType(p).startsWith("True") ? "true" : arType(p).startsWith("Batting") ? "bat" : "bowl"}">${esc(arType(p))}</i>` : ""}</b><small>${esc(roleLine(p))}${why ? ` · <em>${why}</em>` : ""}</small></span>${statCells(p)}
     </button>
-    ${sel ? `<div class="put"><span>Put him in as</span>${fits.map(s => `<button class="btn sm" data-act="pick" data-id="${esc(p.ident)}" data-slot="${s}">${SLOT[s].label}</button>`).join("")}<button class="linkbtn" data-act="sel" data-id="">Cancel</button></div>` : ""}
+    ${sel ? `<div class="put"><span>Put him in as</span>${fits.map(s => `<button class="btn sm${s === "KO" ? " ko" : ""}" data-act="pick" data-id="${esc(p.ident)}" data-slot="${s}" ${s === "KO" ? 'title="He opens and keeps wicket; your keeper slot becomes an extra batter"' : ""}>${SLOT[s].label}</button>`).join("")}${fits.includes("KO") ? '<span class="konote">Rare: as opener + keeper he fills both jobs, and your keeper slot becomes an extra batter.</span>' : ""}<button class="linkbtn" data-act="sel" data-id="">Cancel</button></div>` : ""}
   </li>`;
 }
 function squadView() {
